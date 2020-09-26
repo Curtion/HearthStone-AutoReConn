@@ -1,0 +1,3 @@
+netsh advfirewall firewall add rule name="Curtion_LS" dir=out action="block" program="D:\暴雪游戏\Hearthstone\Hearthstone Beta Launcher.exe" enable="NO"
+netsh advfirewall firewall set rule name="Curtion_LS" new enable="YES"
+wmic Process

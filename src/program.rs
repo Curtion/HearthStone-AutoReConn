@@ -5,13 +5,14 @@ pub fn get_hs_path() -> String {
     .args(&[
       "Process",
       "where",
-      "name='Hearthstone.exe'",
+      // "name='Hearthstone.exe'",
+      "name='QQ.exe'",
       "get",
       "executablepath",
     ])
     .output()
     .expect("failed to execute process");
-  let st = String::from_utf8_lossy(&output.stdout);
-  println!("{}", st);
-  return "测试".to_string();
+  let path = String::from_utf8_lossy(&output.stdout).to_string();
+  let path: Vec<&str> = path.split_whitespace().collect();
+  path[1].to_string()
 }

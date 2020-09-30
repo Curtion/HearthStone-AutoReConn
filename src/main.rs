@@ -35,7 +35,9 @@ fn main() {
         .get_matches();
     let hs_path = program::get_hs_path();
     let name = matches.value_of("name").unwrap_or("Curtion_LS");
-    let program = matches.value_of("program").unwrap_or(&hs_path);
+    let program = matches.value_of("program").unwrap_or(&hs_path).trim();
     let second = matches.value_of("second").unwrap_or("3");
-    println!("{},{},{}", name, program, second);
+    println!("{}", name);
+    println!("{}", program);
+    println!("{}", second);
 }

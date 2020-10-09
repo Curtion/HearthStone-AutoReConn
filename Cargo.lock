@@ -444,6 +444,7 @@ name = "hsarec"
 version = "0.1.0"
 dependencies = [
  "systray",
+ "textcode",
  "webbrowser",
 ]
 
@@ -724,6 +725,12 @@ checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "textcode"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7de84fe8a8a958f986d5624d744a5d62be98089cd8ee8c8de5dc0aec802cbdd"
 
 [[package]]
 name = "textwrap"

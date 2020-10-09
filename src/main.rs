@@ -1,43 +1,33 @@
-extern crate clap;
+// #![windows_subsystem = "windows"]
 mod program;
 
-use clap::{App, Arg};
+use systray;
+use webbrowser;
 
-fn main() {
-    let matches = App::new("hs")
-        .version("0.1.0")
-        .author("Curtion. curtion@126.com")
-        .about("炉石传说酒馆战棋拔线工具！")
-        .arg(
-            Arg::new("name")
-                .short('n')
-                .long("name")
-                .value_name("NAME")
-                .about("可选，防火墙规则名称")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("program")
-                .short('p')
-                .long("program")
-                .value_name("PATH")
-                .about("可选，炉石执行程序路径")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::new("second")
-                .short('s')
-                .long("second")
-                .value_name("TIME")
-                .about("可选，网络恢复时间(默认3S)")
-                .takes_value(true),
-        )
-        .get_matches();
-    let hs_path = program::get_hs_path();
-    let name = matches.value_of("name").unwrap_or("Curtion_LS");
-    let program = matches.value_of("program").unwrap_or(&hs_path).trim();
-    let second = matches.value_of("second").unwrap_or("3");
-    println!("{}", name);
-    println!("{}", program);
-    println!("{}", second);
+fn main() -> Result<(), systray::Error> {
+    let mut app = match systray::Application::new() {
+        Ok(w) => w,
+        Err(_) => panic!("程序运行错误！"),
+    };
+    app.set_icon_from_file("hsarec.ico")?;
+
+    app.add_menu_item("开始拔线(Shift+Alt+R)", move |_| {
+        program::start();
+        Ok::<_, systray::Error>(())
+    })?;
+    app.add_menu_separator()?;
+    app.add_menu_item("关于我", |_| {
+        match webbrowser::open("https://blog.3gxk.net/about.html") {
+            Err(e) => println!("{:?}", e),
+            _ => (),
+        }
+        Ok::<_, systray::Error>(())
+    })?;
+    app.add_menu_item("退出程序", |window| {
+        window.quit();
+        Ok::<_, systray::Error>(())
+    })?;
+
+    app.wait_for_message()?;
+    Ok(())
 }

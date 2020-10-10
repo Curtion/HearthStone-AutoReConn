@@ -1,6 +1,8 @@
 use std::os::windows::process::CommandExt;
 use std::process::Command;
+use std::{thread, time};
 use textcode::gb2312;
+
 fn get_hs_path() -> String {
   // 获取炉石执行程序路径
   const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -54,7 +56,7 @@ fn creat_firewall_rule(hs_path: &str) {
   process.output().expect("创建规则失败");
 }
 
-async fn start_reconnection() {
+fn start_reconnection() {
   let mut process = Command::new("netsh");
   process
     .arg("advfirewall")
@@ -63,9 +65,10 @@ async fn start_reconnection() {
     .arg("rule")
     .arg("name=Curtion_LS")
     .arg("new")
-    .arg("new enable=YES");
+    .arg("enable=YES");
   process.output().expect("禁用网络失败");
-
+  let time = time::Duration::from_millis(3000);
+  thread::sleep(time);
   let mut process = Command::new("netsh");
   process
     .arg("advfirewall")
@@ -74,7 +77,7 @@ async fn start_reconnection() {
     .arg("rule")
     .arg("name=Curtion_LS")
     .arg("new")
-    .arg("new enable=NO");
+    .arg("enable=NO");
   process.output().expect("恢复网络失败");
 }
 

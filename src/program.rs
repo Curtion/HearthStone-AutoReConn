@@ -2,10 +2,10 @@ use std::os::windows::process::CommandExt;
 use std::process::Command;
 use std::{thread, time};
 use textcode::gb2312;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 fn get_hs_path() -> String {
   // 获取炉石执行程序路径
-  const CREATE_NO_WINDOW: u32 = 0x08000000;
   let mut process = Command::new("wmic");
   process
     .arg("Process")
@@ -29,7 +29,8 @@ fn is_fw_rule() -> bool {
     .arg("firewall")
     .arg("show")
     .arg("rule")
-    .arg("name=Curtion_LS");
+    .arg("name=Curtion_LS")
+    .creation_flags(CREATE_NO_WINDOW);
   let output = process.output().expect("判断路径失败");
   let mut res = String::new();
   gb2312::decode(&output.stdout, &mut res);

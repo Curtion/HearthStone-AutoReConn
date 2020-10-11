@@ -1,10 +1,26 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 mod program;
 
+use hotkey;
+use std::thread;
 use systray;
 use webbrowser;
 
 fn main() -> Result<(), systray::Error> {
+    if program::is_fw_rule() {
+        // 首先恢复网络
+        program::disable();
+    }
+    thread::spawn(|| {
+        let mut hk = hotkey::Listener::new();
+        hk.register_hotkey(
+            hotkey::modifiers::SHIFT | hotkey::modifiers::ALT,
+            'R' as u32,
+            || program::start(),
+        )
+        .unwrap();
+        hk.listen();
+    });
     let mut app = match systray::Application::new() {
         Ok(w) => w,
         Err(_) => panic!("程序运行错误！"),
@@ -27,7 +43,6 @@ fn main() -> Result<(), systray::Error> {
         window.quit();
         Ok::<_, systray::Error>(())
     })?;
-
     app.wait_for_message()?;
     Ok(())
 }

@@ -8,7 +8,7 @@
 
 mt.exe 参考：[https://docs.microsoft.com/en-us/windows/win32/sbscs/mt-exe](https://docs.microsoft.com/en-us/windows/win32/sbscs/mt-exe)
 
-第 4 步是为了给执行文件添加管理员权限，如果本机没有 mt.exe 也可以省略此步骤，作为代价就是 hsarec.exe 需要收集右键选择：以管理员身份运行。
+第 4 步是为了给执行文件添加管理员权限，如果本机没有 mt.exe 也可以省略此步骤，作为代价就是 hsarec.exe 需要手动右键菜单选择：以管理员身份运行。
 
 # 使用说明
 

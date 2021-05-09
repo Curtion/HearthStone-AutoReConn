@@ -6,7 +6,27 @@ use std::thread;
 use systray;
 use webbrowser;
 
+#[macro_use]
+extern crate log;
+extern crate simplelog;
+use simplelog::*;
+use std::fs::File;
+
 fn main() -> Result<(), systray::Error> {
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Warn,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            File::create("run.log").unwrap(),
+        ),
+    ])
+    .unwrap();
     if program::is_fw_rule() {
         // 首先恢复网络
         program::disable();

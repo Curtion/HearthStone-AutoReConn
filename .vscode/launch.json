@@ -8,12 +8,12 @@
       "name": "(Windows) 启动",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/target/debug/hs.exe",
+      "program": "${workspaceFolder}/target/debug/hsarec.exe",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
-      "externalConsole": false
+      "console": "internalConsole"
     }
   ]
 }

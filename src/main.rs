@@ -25,8 +25,8 @@ fn main() -> Result<(), systray::Error> {
         Ok(w) => w,
         Err(_) => panic!("程序运行错误！"),
     };
-    app.set_icon_from_file("hsarec.ico")?;
-
+    let icon = include_bytes!("./assets/hsarec.ico");
+    app.set_icon_from_buffer(icon, 64, 64)?;
     app.add_menu_item("开始拔线(Shift+Alt+R)", move |_| {
         program::start();
         Ok::<_, systray::Error>(())

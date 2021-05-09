@@ -3,3 +3,6 @@ windows防火墙命令行:
 启用规则：netsh advfirewall firewall set rule name="Curtion_LS" new enable="YES"
 查询规则：netsh advfirewall firewall show rule name="Curtion_LS"
 获取进程：wmic Process
+
+systray-rust buff icon错误：
+https://github.com/qdot/systray-rs/issues/24

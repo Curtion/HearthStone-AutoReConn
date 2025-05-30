@@ -9,6 +9,9 @@ build = "build.rs"
 
 [dependencies]
 gpui = { git = "https://github.com/zed-industries/zed", tag = "v0.188.4" }
+tray-item = "0.10.0"
+anyhow = "1.0.98"
+webbrowser = "1.0.4"
 
 [build-dependencies]
 embed-resource = "3.0"

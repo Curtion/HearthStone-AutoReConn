@@ -1,19 +1,14 @@
 [package]
 name = "hsarec"
-version = "0.1.0"
+version = "2.0.0"
 authors = ["Curtion <curtion@126.com>"]
-edition = "2018"
+edition = "2024"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-systray = "0.4.0"
-webbrowser = "0.5.5"
-textcode = "0.1.2"
-hotkey = "0.3.1"
-simplelog = "^0.10.0"
-log = "0.4.14"
+gpui = { git = "https://github.com/zed-industries/zed", tag = "v0.188.4" }
 
 [build-dependencies]
-winres = "0.1"
+embed-resource = "3.0"

@@ -1,10 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
+use global_hotkey::{
+    hotkey::{Code, HotKey, Modifiers}, GlobalHotKeyEvent, GlobalHotKeyManager
+};
 use std::sync::mpsc;
 use tray_item::{IconSource, TrayItem};
 
 fn main() -> Result<()> {
+    let manager = GlobalHotKeyManager::new()?;
+    let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
+    manager.register(hotkey)?;
+
     let (tx, rx) = mpsc::channel();
 
     let mut tray = TrayItem::new("Hsarec", IconSource::Resource("icon"))?;
@@ -21,6 +28,10 @@ fn main() -> Result<()> {
     loop {
         if let Ok(_) = rx.try_recv() {
             break;
+        }
+
+        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+            println!("{:?}", event);
         }
 
         std::thread::sleep(std::time::Duration::from_millis(50));

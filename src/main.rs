@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Result;
-use std::sync::mpsc;
+use crossbeam_channel::bounded;
 
 mod config;
 mod hotkey;
@@ -13,9 +13,9 @@ fn main() -> Result<()> {
     println!("加载的配置: {:?}", app_config);
 
     // 用于托盘图标退出事件
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = bounded::<()>(1);
 
-    let _tray_item = tray::setup_tray(tx.clone())?;
+    let _tray_item = tray::setup_tray(tx)?;
 
     let (main_key_opt, modifier_keys_vec) =
         hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);

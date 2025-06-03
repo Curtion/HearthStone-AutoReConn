@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::sync::mpsc;
+use crossbeam_channel::Sender;
 use tray_item::{IconSource, TrayItem};
 
-pub fn setup_tray(tx: mpsc::Sender<()>) -> Result<TrayItem> {
+pub fn setup_tray(tx: Sender<()>) -> Result<TrayItem> {
     let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;
     tray.add_menu_item("开始拔线", move || {
         println!("开始拔线 - 菜单项点击");

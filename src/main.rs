@@ -3,42 +3,24 @@
 use anyhow::Result;
 use crossbeam_channel::bounded;
 use log::{info, warn, error};
-use std::path::Path;
 
 mod config;
 mod hotkey;
 mod tray;
 mod window;
 
-/// 初始化日志系统，将日志保存到exe目录的log文件中
 fn init_logger() -> Result<()> {
-    // 获取当前exe路径
-    let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path.parent().unwrap_or(Path::new("."));
-    let log_file_path = exe_dir.join("hsarec.log");
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .with_colors(true)
+        .with_local_timestamps()
+        .init()?;
     
-    // 使用fern配置日志，同时输出到控制台和文件
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Info)
-        .chain(std::io::stdout()) // 输出到控制台
-        .chain(fern::log_file(&log_file_path)?) // 输出到文件
-        .apply()?;
-    
-    info!("日志系统已初始化，日志文件路径: {:?}", log_file_path);
+    info!("日志系统已初始化");
     Ok(())
 }
 
 fn main() -> Result<()> {
-    // 初始化日志系统
     init_logger()?;
     
     let app_config = config::load_config();

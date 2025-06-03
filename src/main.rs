@@ -1,41 +1,61 @@
- #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
- 
- use anyhow::Result;
- use std::sync::mpsc;
- use tray_item::{IconSource, TrayItem};
- use inputbot::KeybdKey;
- 
- fn main() -> Result<()> {
-     // 用于托盘图标退出事件
-     let (tx, rx) = mpsc::channel();
- 
-     let mut tray = TrayItem::new("Hsarec", IconSource::Resource("icon"))?;
-     tray.add_menu_item("开始拔线", move || {
-         println!("开始拔线 - 菜单项点击");
-     })?;
-     tray.inner_mut().add_separator()?;
-     tray.add_menu_item("关于我", move || {
-         let _ = webbrowser::open("https://blog.3gxk.net/about.html");
-     })?;
-     let tx_clone_for_exit_menu = tx.clone();
-     tray.add_menu_item("退出程序", move || {
-         let _ = tx_clone_for_exit_menu.send(());
-     })?;
- 
-     KeybdKey::F12Key.bind(|| {
-         if KeybdKey::LControlKey.is_pressed() && KeybdKey::LShiftKey.is_pressed() {
-             println!("全局热键 Ctrl+Shift+F12 被按下 (inputbot)");
-         }
-     });
-     
-     std::thread::spawn(|| {
-         inputbot::handle_input_events();
-     });
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-     match rx.recv() {
-         Ok(_) => println!("收到退出信号，程序即将关闭。"),
-         Err(_) => println!("退出信号通道发生错误，程序即将关闭。"),
-     }
-     
-     Ok(())
- }
+use anyhow::Result;
+use std::sync::mpsc;
+
+mod config;
+mod hotkey;
+mod tray;
+mod window;
+
+fn main() -> Result<()> {
+    let app_config = config::load_config();
+    println!("加载的配置: {:?}", app_config);
+
+    // 用于托盘图标退出事件
+    let (tx, rx) = mpsc::channel();
+
+    let _ = tray::setup_tray(tx.clone())?;
+
+    let (main_key_opt, modifier_keys_vec) =
+        hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);
+
+    if let Some(main_key_to_bind) = main_key_opt {
+        let hotkey_str_clone = app_config.reconnect_hotkey.clone();
+        let modifier_keys_clone = modifier_keys_vec.clone();
+        main_key_to_bind.bind(move || {
+            let mut all_modifiers_pressed = true;
+            if !modifier_keys_clone.is_empty() {
+                for modifier in &modifier_keys_clone {
+                    if !modifier.is_pressed() {
+                        all_modifiers_pressed = false;
+                        break;
+                    }
+                }
+            }
+
+            if all_modifiers_pressed {
+                println!("全局热键 {} 被按下 (inputbot)", hotkey_str_clone);
+            }
+        });
+        println!("已注册热键: {}", app_config.reconnect_hotkey);
+    } else {
+        println!(
+            "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
+            app_config.reconnect_hotkey
+        );
+    }
+
+    std::thread::spawn(|| {
+        inputbot::handle_input_events();
+    });
+
+    window::app();
+
+    match rx.recv() {
+        Ok(_) => println!("收到退出信号，程序即将关闭。"),
+        Err(_) => println!("退出信号通道发生错误，程序即将关闭。"),
+    }
+
+    Ok(())
+}

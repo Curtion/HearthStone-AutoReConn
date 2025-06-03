@@ -2095,6 +2095,8 @@ dependencies = [
  "embed-resource",
  "gpui",
  "inputbot",
+ "serde",
+ "toml",
  "tray-item",
  "webbrowser",
 ]

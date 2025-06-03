@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     // 用于托盘图标退出事件
     let (tx, rx) = mpsc::channel();
 
-    let _ = tray::setup_tray(tx.clone())?;
+    let _tray_item = tray::setup_tray(tx.clone())?;
 
     let (main_key_opt, modifier_keys_vec) =
         hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);
@@ -50,7 +50,9 @@ fn main() -> Result<()> {
         inputbot::handle_input_events();
     });
 
-    window::app();
+    std::thread::spawn(|| {
+        window::app();
+    });
 
     match rx.recv() {
         Ok(_) => println!("收到退出信号，程序即将关闭。"),

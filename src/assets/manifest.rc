@@ -1,5 +1,4 @@
 #define RT_MANIFEST 24
-1 RT_MANIFEST "auc.manifest"
-
+2 RT_MANIFEST "auc.manifest"
 1 ICON "hsarec.ico"
 icon ICON "hsarec.ico"

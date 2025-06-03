@@ -1,6 +1,5 @@
 use gpui::{
-    App, Application, Bounds, Context, SharedString, Window, WindowBounds, WindowOptions, div,
-    prelude::*, px, rgb, size,
+    div, prelude::*, px, rgb, size, App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds, WindowOptions
 };
 
 struct HelloWorld {
@@ -92,6 +91,10 @@ pub fn app() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("设置".into()),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             |_, cx| {

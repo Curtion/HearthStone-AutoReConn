@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use tray_item::{IconSource, TrayItem};
 
 pub fn setup_tray(tx: mpsc::Sender<()>) -> Result<TrayItem> {
-    let mut tray = TrayItem::new("Hsarec", IconSource::Resource("icon"))?;
+    let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;
     tray.add_menu_item("开始拔线", move || {
         println!("开始拔线 - 菜单项点击");
         // TODO: Implement actual reconnect logic here if needed by the application

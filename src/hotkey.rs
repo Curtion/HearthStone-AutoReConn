@@ -1,4 +1,5 @@
 use inputbot::KeybdKey;
+use log::warn;
 
 // Helper functions for hotkey parsing
 pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
@@ -72,10 +73,9 @@ pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
         "NUMPAD9" => Some(KeybdKey::Numpad9Key),
         "ESC" | "ESCAPE" => Some(KeybdKey::EscapeKey),
         "SPACE" => Some(KeybdKey::SpaceKey),
-        "ENTER" => Some(KeybdKey::EnterKey),
-        "TAB" => Some(KeybdKey::TabKey),
+        "ENTER" => Some(KeybdKey::EnterKey),        "TAB" => Some(KeybdKey::TabKey),
         _ => {
-            println!("警告: 未映射的键字符串: {}", key_str);
+            warn!("警告: 未映射的键字符串: {}", key_str);
             None
         }
     }
@@ -84,19 +84,16 @@ pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
 pub fn parse_hotkey_config(hotkey_str: &str) -> (Option<KeybdKey>, Vec<KeybdKey>) {
     let parts: Vec<String> = hotkey_str
         .split('+')
-        .map(|s| s.trim().to_uppercase())
-        .collect();
+        .map(|s| s.trim().to_uppercase())        .collect();
     if parts.is_empty() {
-        println!("警告: 热键字符串为空。");
+        warn!("警告: 热键字符串为空。");
         return (None, Vec::new());
     }
 
     // The last part is considered the main key, others are modifiers
     let main_key_str = parts.last().unwrap();
-    let main_key = key_string_to_keybdkey(main_key_str);
-
-    if main_key.is_none() {
-        println!(
+    let main_key = key_string_to_keybdkey(main_key_str);    if main_key.is_none() {
+        warn!(
             "警告: 无法解析主键: '{}' 从配置 '{}'",
             main_key_str, hotkey_str
         );

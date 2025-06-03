@@ -1,11 +1,11 @@
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use tray_item::{IconSource, TrayItem};
+use log::info;
 
 pub fn setup_tray(tx: Sender<()>) -> Result<TrayItem> {
-    let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;
-    tray.add_menu_item("开始拔线", move || {
-        println!("开始拔线 - 菜单项点击");
+    let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;    tray.add_menu_item("开始拔线", move || {
+        info!("开始拔线 - 菜单项点击");
         // TODO: Implement actual reconnect logic here if needed by the application
     })?;
     tray.inner_mut().add_separator()?;

@@ -3,46 +3,15 @@
 use anyhow::Result;
 use crossbeam_channel::bounded;
 use log::{error, info, warn};
-use simplelog::*;
-use std::fs::File;
 
 mod config;
 mod hotkey;
+mod logger;
 mod tray;
 mod window;
 
-fn init_logger() -> Result<()> {
-    // 获取exe所在目录
-    let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path.parent().unwrap();
-    let log_file_path = exe_dir.join("hsarec.log");
-
-    // 创建日志文件
-    let log_file = File::create(&log_file_path)?;
-
-    let config = ConfigBuilder::new()
-        .add_filter_allow_str("hsarec")
-        .set_target_level(LevelFilter::Info)
-        .set_location_level(LevelFilter::Off)
-        .build();
-
-    // 配置日志输出到文件和控制台
-    CombinedLogger::init(vec![
-        TermLogger::new(
-            LevelFilter::Info,
-            config.clone(),
-            TerminalMode::Mixed,
-            ColorChoice::Auto,
-        ),
-        WriteLogger::new(LevelFilter::Info, config, log_file),
-    ])?;
-
-    info!("日志系统已初始化，日志文件: {:?}", log_file_path);
-    Ok(())
-}
-
 fn main() -> Result<()> {
-    init_logger()?;
+    logger::init_logger()?;
 
     let app_config = config::load_config();
     info!("加载的配置: {:?}", app_config);

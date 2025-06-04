@@ -19,5 +19,9 @@ crossbeam-channel = "0.5"
 log = "0.4"
 simplelog = "0.12"
 
+[dependencies.windows]
+version = "0.61"
+features = ["Win32_NetworkManagement_IpHelper"]
+
 [build-dependencies]
 embed-resource = "3.0"

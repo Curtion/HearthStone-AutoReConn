@@ -21,7 +21,7 @@ simplelog = "0.12"
 
 [dependencies.windows]
 version = "0.61"
-features = ["Win32_NetworkManagement_IpHelper"]
+features = ["Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"]
 
 [build-dependencies]
 embed-resource = "3.0"

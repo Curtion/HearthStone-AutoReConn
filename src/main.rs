@@ -7,11 +7,23 @@ use log::{error, info, warn};
 mod config;
 mod hotkey;
 mod logger;
+mod network;
 mod tray;
 mod window;
 
 fn main() -> Result<()> {
     logger::init_logger()?;
+
+    let data = network::test();
+
+    match data {
+        Ok(buffer) => {
+            info!("GetExtendedTcpTable 返回数据长度: {}", buffer.len());
+        }
+        Err(e) => {
+            error!("获取 TCP 表异常: {:?}", e);
+        }
+    }
 
     let app_config = config::load_config();
     info!("加载的配置: {:?}", app_config);

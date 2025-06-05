@@ -10,9 +10,12 @@ mod logger;
 mod network;
 mod tray;
 mod window;
+mod process;
 
 fn main() -> Result<()> {
     logger::init_logger()?;
+
+    process::get_process_info();
 
     let data = network::test();
 

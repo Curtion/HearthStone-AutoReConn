@@ -12,21 +12,18 @@ mod tray;
 mod window;
 mod process;
 
+const PROCESS_NAME: &str = "Hearthstone.exe";
+
 fn main() -> Result<()> {
     logger::init_logger()?;
 
-    process::get_process_info();
+    let data = process::get_process_by_name(PROCESS_NAME)?;
 
-    let data = network::test();
+    info!("获取到的进程信息: {:#?}", data);
 
-    match data {
-        Ok(buffer) => {
-            info!("GetExtendedTcpTable 返回数据长度: {}", buffer.len());
-        }
-        Err(e) => {
-            error!("获取 TCP 表异常: {:?}", e);
-        }
-    }
+    let data = network::get_process_by_pid(data.get(0).map_or(0, |p| p.pid))?;
+
+    info!("获取到的网络信息: {:#?}", data);
 
     let app_config = config::load_config();
     info!("加载的配置: {:?}", app_config);

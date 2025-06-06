@@ -16,6 +16,8 @@ pub fn init_logger() -> Result<()> {
         .add_filter_allow_str("hsarec")
         .set_target_level(LevelFilter::Info)
         .set_location_level(LevelFilter::Off)
+        .set_time_offset_to_local()
+        .unwrap_or_else(|builder| builder)
         .build();
 
     // 配置日志输出到文件和控制台

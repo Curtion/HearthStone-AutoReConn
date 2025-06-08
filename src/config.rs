@@ -1,6 +1,6 @@
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use log::{info, warn};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Config {
@@ -16,7 +16,8 @@ impl Default for Config {
 }
 
 pub fn load_config() -> Config {
-    let config_path = if let Ok(current_exe) = std::env::current_exe() {        if let Some(parent_dir) = current_exe.parent() {
+    let config_path = if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(parent_dir) = current_exe.parent() {
             parent_dir.join("config.toml")
         } else {
             warn!("警告: 无法获取可执行文件的父目录，将使用默认配置。");
@@ -28,7 +29,8 @@ pub fn load_config() -> Config {
     };
 
     if config_path.exists() {
-        match fs::read_to_string(&config_path) {            Ok(contents) => match toml::from_str(&contents) {
+        match fs::read_to_string(&config_path) {
+            Ok(contents) => match toml::from_str(&contents) {
                 Ok(config) => {
                     info!("成功加载配置文件: {:?}", config_path);
                     config
@@ -47,7 +49,8 @@ pub fn load_config() -> Config {
                     config_path, e
                 );
                 Config::default()
-            }        }
+            }
+        }
     } else {
         warn!("警告: 配置文件 {:?} 不存在。将使用默认配置。", config_path);
         // 尝试创建默认配置文件

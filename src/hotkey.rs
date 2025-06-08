@@ -1,5 +1,5 @@
 use inputbot::KeybdKey;
-use log::warn;
+use log::{info, warn};
 
 // Helper functions for hotkey parsing
 pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
@@ -73,7 +73,8 @@ pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
         "NUMPAD9" => Some(KeybdKey::Numpad9Key),
         "ESC" | "ESCAPE" => Some(KeybdKey::EscapeKey),
         "SPACE" => Some(KeybdKey::SpaceKey),
-        "ENTER" => Some(KeybdKey::EnterKey),        "TAB" => Some(KeybdKey::TabKey),
+        "ENTER" => Some(KeybdKey::EnterKey),
+        "TAB" => Some(KeybdKey::TabKey),
         _ => {
             warn!("警告: 未映射的键字符串: {}", key_str);
             None
@@ -84,7 +85,8 @@ pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
 pub fn parse_hotkey_config(hotkey_str: &str) -> (Option<KeybdKey>, Vec<KeybdKey>) {
     let parts: Vec<String> = hotkey_str
         .split('+')
-        .map(|s| s.trim().to_uppercase())        .collect();
+        .map(|s| s.trim().to_uppercase())
+        .collect();
     if parts.is_empty() {
         warn!("警告: 热键字符串为空。");
         return (None, Vec::new());
@@ -92,7 +94,8 @@ pub fn parse_hotkey_config(hotkey_str: &str) -> (Option<KeybdKey>, Vec<KeybdKey>
 
     // The last part is considered the main key, others are modifiers
     let main_key_str = parts.last().unwrap();
-    let main_key = key_string_to_keybdkey(main_key_str);    if main_key.is_none() {
+    let main_key = key_string_to_keybdkey(main_key_str);
+    if main_key.is_none() {
         warn!(
             "警告: 无法解析主键: '{}' 从配置 '{}'",
             main_key_str, hotkey_str
@@ -106,11 +109,27 @@ pub fn parse_hotkey_config(hotkey_str: &str) -> (Option<KeybdKey>, Vec<KeybdKey>
                 Some(key) => {
                     modifier_keys.push(key);
                 }
-                None => {
-                    // Warning already printed by key_string_to_keybdkey
-                }
+                None => {}
             }
         }
     }
     (main_key, modifier_keys)
+}
+
+pub fn register_hotkey(main_key: KeybdKey, modifier_keys: Vec<KeybdKey>) {
+    let modifier_keys_clone = modifier_keys.clone();
+    main_key.bind(move || {
+        let mut all_modifiers_pressed = true;
+        if !modifier_keys_clone.is_empty() {
+            for modifier in &modifier_keys_clone {
+                if !modifier.is_pressed() {
+                    all_modifiers_pressed = false;
+                    break;
+                }
+            }
+        }
+        if all_modifiers_pressed {
+            info!("执行重连操作...");
+        }
+    });
 }

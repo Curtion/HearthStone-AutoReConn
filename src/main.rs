@@ -5,13 +5,13 @@ use crossbeam_channel::{select, unbounded};
 use log::{error, info, warn};
 
 mod config;
+mod gui;
 mod hearthstone;
 mod hotkey;
 mod logger;
 mod network;
 mod process;
 mod tray;
-mod window;
 
 const PROCESS_NAME: &str = "Hearthstone.exe";
 const LOGFILE_NAME: &str = "Hearthstone.log";
@@ -28,45 +28,29 @@ fn main() -> Result<()> {
     info!("加载的配置: {:?}", app_config);
 
     // 托盘线程
-    let (tx, rx) = unbounded::<tray::TrayMessage>();
+    let (tray_tx, tray_rx) = unbounded::<tray::TrayMessage>();
+    // GUI线程
+    let (gui_tx, gui_rx) = unbounded::<gui::GuiMessage>();
 
-    let _tray_item = tray::setup_tray(tx)?;
+    let _tray_item = tray::setup_tray(tray_tx)?;
 
-    let (main_key_opt, modifier_keys_vec) =
-        hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);
-
-    if let Some(main_key_to_bind) = main_key_opt {
-        let hotkey_str_clone = app_config.reconnect_hotkey.clone();
-        let modifier_keys_clone = modifier_keys_vec.clone();
-        main_key_to_bind.bind(move || {
-            let mut all_modifiers_pressed = true;
-            if !modifier_keys_clone.is_empty() {
-                for modifier in &modifier_keys_clone {
-                    if !modifier.is_pressed() {
-                        all_modifiers_pressed = false;
-                        break;
-                    }
-                }
-            }
-            if all_modifiers_pressed {
-                info!("全局热键 {} 被按下 (inputbot)", hotkey_str_clone);
-            }
-        });
-        info!("已注册热键: {}", app_config.reconnect_hotkey);
-    } else {
-        warn!(
-            "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
-            app_config.reconnect_hotkey
-        );
-    }
-
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
+        let (main_key_opt, modifier_keys_vec) =
+            hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);
+        if let Some(main_key_to_bind) = main_key_opt {
+            hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
+        } else {
+            warn!(
+                "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
+                app_config.reconnect_hotkey
+            );
+        }
         inputbot::handle_input_events();
     });
 
     loop {
         select! {
-            recv(rx) -> msg => {
+            recv(tray_rx) -> msg => {
                 match msg {
                     Ok(tray_msg) => {
                         info!("收到托盘消息: {:?}", tray_msg);
@@ -80,7 +64,7 @@ fn main() -> Result<()> {
                             }
                             tray::TrayMessage::Setting => {
                                 std::thread::spawn(|| {
-                                    window::app();
+                                    gui::app();
                                 });
                             }
                         }
@@ -88,8 +72,21 @@ fn main() -> Result<()> {
                     Err(e) => error!("接收托盘消息失败: {}", e),
                 }
             }
+            recv(gui_rx) -> msg => {
+                match msg {
+                    Ok(gui_msg) => {
+                        match gui_msg {
+                            gui::GuiMessage::UpdateConfig(config) => {
+                                info!("更新配置: {:?}", config);
+                            }
+                        }
+                    }
+                    Err(e) => error!("接收GUI消息失败: {}", e),
+                }
+            }
         }
     }
 
     Ok(())
 }
+

@@ -11,7 +11,7 @@ pub enum TrayMessage {
 }
 
 pub fn setup_tray(tx: Sender<TrayMessage>, reconnect_hotkey: &str) -> Result<TrayItem> {
-    let reconnect_name = "开始拔线".to_string() + reconnect_hotkey;
+    let reconnect_name = format!("开始拔线({})", reconnect_hotkey);
     let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;
     let tx_clone = tx.clone();
     tray.add_menu_item(&reconnect_name, move || {

@@ -4,7 +4,7 @@ use gpui::{
     App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds,
     WindowOptions, div, prelude::*, px, rgb, size,
 };
-use log::{error, info};
+use log::error;
 
 pub enum GuiMessage {
     SaveHotKeys(String),
@@ -19,6 +19,7 @@ impl Render for Setting {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let tx = self.tx.clone();
         let mut button = div()
+            .id("save-button")
             .flex()
             .bg(rgb(0x2e7d32))
             .justify_center()
@@ -32,9 +33,9 @@ impl Render for Setting {
             .child(format!("{} 保存配置", self.hotkeys));
         button
             .interactivity()
-            .on_click(cx.listener(move |_, _, _, _| {
-                info!("保存快捷键");
-                tx.send(GuiMessage::SaveHotKeys("Alt+R".to_string()))
+            .on_click(cx.listener(move |this, _, _, _| {
+                this.hotkeys = SharedString::from("Alt+E");
+                tx.send(GuiMessage::SaveHotKeys("Alt+E".to_string()))
                     .unwrap_or_else(|e| {
                         error!("无法发送消息: {}", e);
                     });

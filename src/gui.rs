@@ -1,96 +1,60 @@
+use crossbeam_channel::Sender;
 use gpui::{
     App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds,
     WindowOptions, div, prelude::*, px, rgb, size,
 };
+use log::error;
+
+use crate::config::Config;
 
 pub enum GuiMessage {
-    UpdateConfig(String),
+    SaveConfig(Config),
 }
 
-struct HelloWorld {
-    text: SharedString,
+struct Setting {
+    hotkeys: SharedString,
+    tx: Sender<GuiMessage>,
 }
 
-impl Render for HelloWorld {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+impl Render for Setting {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let mut button = div()
+            .id("counter")
             .flex()
-            .flex_col()
-            .gap_3()
-            .bg(rgb(0x505050))
-            .size(px(500.0))
+            .bg(rgb(0x2e7d32))
             .justify_center()
             .items_center()
             .shadow_lg()
-            .border_1()
+            .border(px(2.0))
             .border_color(rgb(0x0000ff))
             .text_xl()
             .text_color(rgb(0xffffff))
-            .child(format!("Hello, {}!", &self.text))
-            .child(
-                div()
-                    .flex()
-                    .gap_2()
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::red())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .border_color(gpui::white()),
-                    )
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::green())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .border_color(gpui::white()),
-                    )
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::blue())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .border_color(gpui::white()),
-                    )
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::yellow())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .border_color(gpui::white()),
-                    )
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::black())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .rounded_md()
-                            .border_color(gpui::white()),
-                    )
-                    .child(
-                        div()
-                            .size_8()
-                            .bg(gpui::white())
-                            .border_1()
-                            .border_dashed()
-                            .rounded_md()
-                            .border_color(gpui::black()),
-                    ),
-            )
+            .cursor_pointer()
+            .child(format!("Count"));
+        let tx = self.tx.clone();
+        button
+            .interactivity()
+            .on_click(cx.listener(move |_, _, _, _| {
+                tx.send(GuiMessage::SaveConfig(Config {
+                    reconnect_hotkey: "Alt+R".to_string(),
+                }))
+                .unwrap_or_else(|e| {
+                    error!("Failed to send message: {}", e);
+                });
+            }));
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .size_full()
+            .bg(rgb(0xffffff))
+            .child(button)
     }
 }
 
-pub fn app() {
+pub fn app(tx: Sender<GuiMessage>, config: Config) {
+    let reconnect_hotkey = config.reconnect_hotkey.clone();
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(500.), px(500.0)), cx);
         cx.open_window(
@@ -103,8 +67,9 @@ pub fn app() {
                 ..Default::default()
             },
             |_, cx| {
-                cx.new(|_| HelloWorld {
-                    text: "World".into(),
+                cx.new(|_| Setting {
+                    hotkeys: reconnect_hotkey.into(),
+                    tx,
                 })
             },
         )

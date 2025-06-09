@@ -2,17 +2,21 @@ use anyhow::Result;
 use crossbeam_channel::Sender;
 use tray_item::{IconSource, TrayItem};
 
+use crate::config::Config;
+
 #[derive(Debug, Clone)]
 pub enum TrayMessage {
     Setting,
     Reconnect,
     Exit,
+    UpdateMenu(Config),
 }
 
-pub fn setup_tray(tx: Sender<TrayMessage>) -> Result<TrayItem> {
+pub fn setup_tray(tx: Sender<TrayMessage>, config: &Config) -> Result<TrayItem> {
+    let reconnect_name = "开始拔线".to_string() + config.reconnect_hotkey.as_str();
     let mut tray = TrayItem::new("Hsarec", IconSource::Resource("#1"))?;
     let tx_clone = tx.clone();
-    tray.add_menu_item("开始拔线", move || {
+    tray.add_menu_item(&reconnect_name, move || {
         let _ = tx_clone.send(TrayMessage::Reconnect);
     })?;
     tray.inner_mut().add_separator()?;

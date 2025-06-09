@@ -2,7 +2,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
     pub reconnect_hotkey: String,
 }

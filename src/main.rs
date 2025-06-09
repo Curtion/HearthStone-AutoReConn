@@ -32,17 +32,18 @@ fn main() -> Result<()> {
     // GUI线程
     let (gui_tx, gui_rx) = unbounded::<gui::GuiMessage>();
 
-    let _tray_item = tray::setup_tray(tray_tx)?;
+    let app_config_clone = app_config.clone();
+    let mut _tray_item = tray::setup_tray(tray_tx.clone(), &app_config_clone)?;
 
     std::thread::spawn(move || {
         let (main_key_opt, modifier_keys_vec) =
-            hotkey::parse_hotkey_config(&app_config.reconnect_hotkey);
+            hotkey::parse_hotkey_config(&app_config_clone.reconnect_hotkey);
         if let Some(main_key_to_bind) = main_key_opt {
             hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
         } else {
             warn!(
                 "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
-                app_config.reconnect_hotkey
+                app_config_clone.reconnect_hotkey
             );
         }
         inputbot::handle_input_events();
@@ -63,9 +64,14 @@ fn main() -> Result<()> {
                                 info!("执行重连操作...");
                             }
                             tray::TrayMessage::Setting => {
-                                std::thread::spawn(|| {
-                                    gui::app();
+                                let gui_tx_clone = gui_tx.clone();
+                                let app_config = app_config.clone();
+                                std::thread::spawn(move || {
+                                    gui::app(gui_tx_clone, app_config);
                                 });
+                            }
+                            tray::TrayMessage::UpdateMenu(config) => {
+                                _tray_item = tray::setup_tray(tray_tx.clone(), &config)?;
                             }
                         }
                     }
@@ -76,8 +82,9 @@ fn main() -> Result<()> {
                 match msg {
                     Ok(gui_msg) => {
                         match gui_msg {
-                            gui::GuiMessage::UpdateConfig(config) => {
-                                info!("更新配置: {:?}", config);
+                            gui::GuiMessage::SaveConfig(config) => {
+                                info!("保存配置: {:?}", config);
+                                tray_tx.send(tray::TrayMessage::UpdateMenu(config.clone()))?;
                             }
                         }
                     }
@@ -89,4 +96,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

@@ -24,26 +24,31 @@ fn main() -> Result<()> {
     // let data = network::get_process_by_pid(data.get(0).map_or(0, |p| p.pid))?;
     // info!("获取到的网络信息: {:#?}", data);
 
-    let app_config = config::load_config();
-    info!("加载的配置: {:?}", app_config);
+    let app_config = config::get_config();
+    info!("加载的配置: {:?}", app_config.read().map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?);
 
     // 托盘线程
     let (tray_tx, tray_rx) = unbounded::<tray::TrayMessage>();
     // GUI线程
     let (gui_tx, gui_rx) = unbounded::<gui::GuiMessage>();
 
-    let app_config_clone = app_config.clone();
-    let mut _tray_item = tray::setup_tray(tray_tx.clone(), &app_config_clone)?;
+    let reconnect_hotkey = app_config
+        .read()
+        .map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?
+        .reconnect_hotkey
+        .clone();
+    let mut _tray_item = tray::setup_tray(tray_tx.clone(), &reconnect_hotkey)?;
 
+    let reconnect_hotkey_clone = reconnect_hotkey.clone();
     std::thread::spawn(move || {
         let (main_key_opt, modifier_keys_vec) =
-            hotkey::parse_hotkey_config(&app_config_clone.reconnect_hotkey);
+            hotkey::parse_hotkey_config(&reconnect_hotkey_clone);
         if let Some(main_key_to_bind) = main_key_opt {
             hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
         } else {
             warn!(
                 "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
-                app_config_clone.reconnect_hotkey
+                reconnect_hotkey_clone
             );
         }
         inputbot::handle_input_events();
@@ -65,9 +70,9 @@ fn main() -> Result<()> {
                             }
                             tray::TrayMessage::Setting => {
                                 let gui_tx_clone = gui_tx.clone();
-                                let app_config = app_config.clone();
+                                let reconnect_hotkey_clone = reconnect_hotkey.clone();
                                 std::thread::spawn(move || {
-                                    gui::app(gui_tx_clone, app_config);
+                                    gui::app(gui_tx_clone, &reconnect_hotkey_clone).unwrap();
                                 });
                             }
                             tray::TrayMessage::UpdateMenu(config) => {
@@ -82,9 +87,12 @@ fn main() -> Result<()> {
                 match msg {
                     Ok(gui_msg) => {
                         match gui_msg {
-                            gui::GuiMessage::SaveConfig(config) => {
-                                info!("保存配置: {:?}", config);
-                                tray_tx.send(tray::TrayMessage::UpdateMenu(config.clone()))?;
+                            gui::GuiMessage::SaveHotKeys(reconnect_hotkey) => {
+                                let mut config = app_config.write()
+                                    .map_err(|e| anyhow::anyhow!("无法获取配置写入锁: {}", e))?;
+                                config.reconnect_hotkey = reconnect_hotkey.clone();
+                                config.save()?;
+                                tray_tx.send(tray::TrayMessage::UpdateMenu(reconnect_hotkey))?;
                             }
                         }
                     }

@@ -1,14 +1,13 @@
+use anyhow::Result;
 use crossbeam_channel::Sender;
 use gpui::{
     App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds,
     WindowOptions, div, prelude::*, px, rgb, size,
 };
-use log::error;
-
-use crate::config::Config;
+use log::{error, info};
 
 pub enum GuiMessage {
-    SaveConfig(Config),
+    SaveHotKeys(String),
 }
 
 struct Setting {
@@ -18,6 +17,7 @@ struct Setting {
 
 impl Render for Setting {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let tx = self.tx.clone();
         let mut button = div()
             .flex()
             .bg(rgb(0x2e7d32))
@@ -30,16 +30,14 @@ impl Render for Setting {
             .text_color(rgb(0xffffff))
             .cursor_pointer()
             .child(format!("{} 保存配置", self.hotkeys));
-        let tx = self.tx.clone();
         button
             .interactivity()
             .on_click(cx.listener(move |_, _, _, _| {
-                tx.send(GuiMessage::SaveConfig(Config {
-                    reconnect_hotkey: "Alt+R".to_string(),
-                }))
-                .unwrap_or_else(|e| {
-                    error!("Failed to send message: {}", e);
-                });
+                info!("保存快捷键");
+                tx.send(GuiMessage::SaveHotKeys("Alt+R".to_string()))
+                    .unwrap_or_else(|e| {
+                        error!("无法发送消息: {}", e);
+                    });
             }));
         div()
             .flex()
@@ -52,8 +50,8 @@ impl Render for Setting {
     }
 }
 
-pub fn app(tx: Sender<GuiMessage>, config: Config) {
-    let reconnect_hotkey = config.reconnect_hotkey.clone();
+pub fn app(tx: Sender<GuiMessage>, reconnect_hotkey: &str) -> Result<()> {
+    let reconnect_hotkey = reconnect_hotkey.to_string();
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(500.), px(500.0)), cx);
         cx.open_window(
@@ -75,4 +73,5 @@ pub fn app(tx: Sender<GuiMessage>, config: Config) {
         .unwrap();
         cx.activate(true);
     });
+    Ok(())
 }

@@ -6,15 +6,15 @@ use log::{error, info, warn};
 
 mod config;
 mod gui;
-mod hearthstone;
+// mod hearthstone;
 mod hotkey;
 mod logger;
-mod network;
-mod process;
+// mod network;
+// mod process;
 mod tray;
 
-const PROCESS_NAME: &str = "Hearthstone.exe";
-const LOGFILE_NAME: &str = "Hearthstone.log";
+const _PROCESS_NAME: &str = "Hearthstone.exe";
+const _LOGFILE_NAME: &str = "Hearthstone.log";
 
 fn main() -> Result<()> {
     logger::init_logger()?;

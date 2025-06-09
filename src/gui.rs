@@ -19,7 +19,6 @@ struct Setting {
 impl Render for Setting {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut button = div()
-            .id("counter")
             .flex()
             .bg(rgb(0x2e7d32))
             .justify_center()
@@ -30,7 +29,7 @@ impl Render for Setting {
             .text_xl()
             .text_color(rgb(0xffffff))
             .cursor_pointer()
-            .child(format!("Count"));
+            .child(format!("{} 保存配置", self.hotkeys));
         let tx = self.tx.clone();
         button
             .interactivity()

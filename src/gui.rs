@@ -1,10 +1,10 @@
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use gpui::{
-    App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds,
-    WindowOptions, div, prelude::*, px, rgb, size,
+    App, Application, Bounds, Context, KeyDownEvent, SharedString, TitlebarOptions, Window,
+    WindowBounds, WindowOptions, div, prelude::*, px, rgb, size,
 };
-use log::error;
+use log::{error, info};
 
 pub enum GuiMessage {
     SaveHotKeys(String),
@@ -73,6 +73,19 @@ pub fn app(tx: Sender<GuiMessage>, reconnect_hotkey: &str) -> Result<()> {
         )
         .unwrap();
         cx.activate(true);
+        cx.observe_keystrokes(|keystroke_event, _window, _cx| {
+            println!("全局键盘事件: {:?}", keystroke_event.keystroke);
+            // 处理键盘事件
+            match keystroke_event.keystroke.key.as_str() {
+                "escape" => {
+                    // 处理 ESC 键
+                }
+                "enter" => {
+                    // 处理回车键
+                }
+                _ => {}
+            }
+        }).detach();
     });
     Ok(())
 }

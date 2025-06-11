@@ -1,18 +1,25 @@
+use crossbeam_channel::Sender;
 use crossbeam_channel::unbounded;
-use log::info;
+use log::{error, info};
 use notify::{Event, RecursiveMode, Result, Watcher, recommended_watcher};
 use std::path::Path;
 
-use crate::process;
 use crate::network;
+use crate::process;
 
-pub fn watch_log() -> anyhow::Result<()> {
+#[derive(Debug)]
+pub struct LogMessage {
+    ip: String,
+    port: u16,
+}
+
+pub fn watch_log(log_tx: Sender<LogMessage>) -> anyhow::Result<()> {
     let (tx, rx) = unbounded::<Result<Event>>();
 
     let mut watcher = recommended_watcher(move |res| {
         println!("回调执行线程ID: {:?}", std::thread::current().id());
         if let Err(e) = tx.send(res) {
-            log::error!("监听日志文件通信异常: {:?}", e);
+            error!("监听日志文件通信异常: {:?}", e);
         }
     })?;
 
@@ -20,7 +27,10 @@ pub fn watch_log() -> anyhow::Result<()> {
     for res in rx {
         match res {
             Ok(event) => println!("event: {:?}", event),
-            Err(e) => println!("watch error: {:?}", e),
+            Err(e) => {
+                error!("日志文件监控发生错误: {:?}", e);
+                continue;
+            }
         }
     }
 
@@ -39,9 +49,10 @@ pub fn reconnect(process_name: &str) -> anyhow::Result<()> {
             data
         ));
     }
-    let pid = data.get(0).map(|p| p.pid).ok_or_else(|| {
-        anyhow::anyhow!("无法获取进程 {} 的 PID。", process_name)
-    })?;
+    let pid = data
+        .get(0)
+        .map(|p| p.pid)
+        .ok_or_else(|| anyhow::anyhow!("无法获取进程 {} 的 PID。", process_name))?;
     let data = network::get_process_by_pid(pid)?;
     if data.is_empty() {
         return Err(anyhow::anyhow!(

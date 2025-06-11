@@ -13,7 +13,7 @@ mod network;
 mod process;
 mod tray;
 
-const PROCESS_NAME: &str = "WXDrive_x64.exe";
+const PROCESS_NAME: &str = "Hearthstone.exe";
 const _LOGFILE_NAME: &str = "Hearthstone.log";
 
 fn main() -> Result<()> {
@@ -31,6 +31,8 @@ fn main() -> Result<()> {
     let (tray_tx, tray_rx) = unbounded::<tray::TrayMessage>();
     // GUI线程
     let (gui_tx, gui_rx) = unbounded::<gui::GuiMessage>();
+    // 日志监控线程
+    let (log_tx, log_rx) = unbounded::<hearthstone::LogMessage>();
 
     let reconnect_hotkey = app_config
         .read()
@@ -55,7 +57,10 @@ fn main() -> Result<()> {
         inputbot::handle_input_events();
     });
     std::thread::spawn(move || {
-        hearthstone::watch_log().unwrap_or_else(|e| error!("日志监控线程发生错误: {}", e));
+        hearthstone::watch_log(log_tx).map_err(|e| {
+            error!("日志监控线程发生错误: {}", e);
+            e
+        }).unwrap();
     });
 
     loop {
@@ -122,6 +127,14 @@ fn main() -> Result<()> {
                         }
                     }
                     Err(e) => error!("接收GUI消息失败: {}", e),
+                }
+            }
+            recv(log_rx) -> msg => {
+                match msg {
+                    Ok(log_msg) => {
+                        info!("收到日志消息: {:?}", log_msg);
+                    }
+                    Err(e) => error!("接收日志消息失败: {}", e),
                 }
             }
         }

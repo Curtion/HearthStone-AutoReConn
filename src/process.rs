@@ -4,6 +4,7 @@ use sysinfo::{ProcessesToUpdate, System};
 #[derive(Debug)]
 pub struct ProcessInfo {
     pub pid: u32,
+    pub path: String,
     pub name: String,
     pub status: sysinfo::ProcessStatus,
 }
@@ -16,8 +17,10 @@ pub fn get_process_by_name(name: &str) -> Result<Vec<ProcessInfo>> {
 
     for (pid, process) in sys.processes() {
         if process.name().to_string_lossy() == name {
+            log::info!("{:?}", process);
             let proc_info = ProcessInfo {
                 pid: pid.as_u32(),
+                path: process.exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
                 name: process.name().to_string_lossy().into_owned(),
                 status: process.status(),
             };

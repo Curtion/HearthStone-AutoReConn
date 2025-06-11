@@ -1,5 +1,7 @@
 use inputbot::KeybdKey;
-use log::{info, warn};
+use log::{info, warn, error};
+
+use crate::{hearthstone, PROCESS_NAME};
 
 // Helper functions for hotkey parsing
 pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
@@ -129,7 +131,18 @@ pub fn register_hotkey(main_key: KeybdKey, modifier_keys: Vec<KeybdKey>) {
             }
         }
         if all_modifiers_pressed {
-            info!("执行重连操作...");
+            match hearthstone::reconnect(PROCESS_NAME) {
+                Ok(_) => {
+                    info!("重连操作成功。");
+                }
+                Err(e) => {
+                    error!("重连操作失败: {}", e);
+                }
+            }
         }
     });
+}
+
+pub fn unregister_hotkey(main_key: KeybdKey) {
+    main_key.unbind();
 }

@@ -6,26 +6,26 @@ use log::{error, info, warn};
 
 mod config;
 mod gui;
-// mod hearthstone;
+mod hearthstone;
 mod hotkey;
 mod logger;
-// mod network;
-// mod process;
+mod network;
+mod process;
 mod tray;
 
-const _PROCESS_NAME: &str = "Hearthstone.exe";
+const PROCESS_NAME: &str = "WXDrive_x64.exe";
 const _LOGFILE_NAME: &str = "Hearthstone.log";
 
 fn main() -> Result<()> {
     logger::init_logger()?;
-    // hearthstone::watch_log()?;
-    // let data = process::get_process_by_name(PROCESS_NAME)?;
-    // info!("获取到的进程信息: {:#?}", data);
-    // let data = network::get_process_by_pid(data.get(0).map_or(0, |p| p.pid))?;
-    // info!("获取到的网络信息: {:#?}", data);
 
     let app_config = config::get_config();
-    info!("加载的配置: {:?}", app_config.read().map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?);
+    info!(
+        "加载的配置: {:?}",
+        app_config
+            .read()
+            .map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?
+    );
 
     // 托盘线程
     let (tray_tx, tray_rx) = unbounded::<tray::TrayMessage>();
@@ -40,18 +40,22 @@ fn main() -> Result<()> {
     let mut _tray_item = tray::setup_tray(tray_tx.clone(), &reconnect_hotkey)?;
 
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
+    let (main_key_opt, modifier_keys_vec) = hotkey::parse_hotkey_config(&reconnect_hotkey_clone);
+    let mut current_registered_key: Option<inputbot::KeybdKey> = None;
+    if let Some(main_key_to_bind) = main_key_opt {
+        hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
+        current_registered_key = Some(main_key_to_bind);
+    } else {
+        warn!(
+            "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
+            reconnect_hotkey_clone
+        );
+    }
     std::thread::spawn(move || {
-        let (main_key_opt, modifier_keys_vec) =
-            hotkey::parse_hotkey_config(&reconnect_hotkey_clone);
-        if let Some(main_key_to_bind) = main_key_opt {
-            hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
-        } else {
-            warn!(
-                "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
-                reconnect_hotkey_clone
-            );
-        }
         inputbot::handle_input_events();
+    });
+    std::thread::spawn(move || {
+        hearthstone::watch_log().unwrap_or_else(|e| error!("日志监控线程发生错误: {}", e));
     });
 
     loop {
@@ -66,13 +70,20 @@ fn main() -> Result<()> {
                                 break;
                             }
                             tray::TrayMessage::Reconnect => {
-                                info!("执行重连操作...");
+                                match hearthstone::reconnect(PROCESS_NAME) {
+                                    Ok(_) => {
+                                        info!("重连操作成功。");
+                                    }
+                                    Err(e) => {
+                                        error!("重连操作失败: {}", e);
+                                    }
+                                }
                             }
                             tray::TrayMessage::Setting => {
                                 let gui_tx_clone = gui_tx.clone();
-                                let reconnect_hotkey_clone = reconnect_hotkey.clone();
+                                let reconnect_hotkey = app_config.read().map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?.reconnect_hotkey.clone();
                                 std::thread::spawn(move || {
-                                    gui::app(gui_tx_clone, &reconnect_hotkey_clone).unwrap();
+                                    gui::app(gui_tx_clone, &reconnect_hotkey).unwrap();
                                 });
                             }
                             tray::TrayMessage::UpdateMenu(config) => {
@@ -92,7 +103,21 @@ fn main() -> Result<()> {
                                     .map_err(|e| anyhow::anyhow!("无法获取配置写入锁: {}", e))?;
                                 config.reconnect_hotkey = reconnect_hotkey.clone();
                                 config.save()?;
-                                tray_tx.send(tray::TrayMessage::UpdateMenu(reconnect_hotkey))?;
+                                tray_tx.send(tray::TrayMessage::UpdateMenu(reconnect_hotkey.clone()))?;
+                                let (main_key_opt, modifier_keys_vec) = hotkey::parse_hotkey_config(&reconnect_hotkey);
+                                if let Some(main_key_to_bind) = main_key_opt {
+                                    if let Some(current_key) = current_registered_key {
+                                        info!("正在注销当前热键: {:?}", current_key);
+                                        hotkey::unregister_hotkey(current_key);
+                                    }
+                                    hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
+                                    current_registered_key = Some(main_key_to_bind);
+                                } else {
+                                    warn!(
+                                        "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
+                                        reconnect_hotkey_clone
+                                    );
+                                }
                             }
                         }
                     }

@@ -1,7 +1,8 @@
+use crossbeam_channel::Sender;
 use inputbot::KeybdKey;
-use log::{info, warn, error};
+use log::warn;
 
-use crate::{hearthstone, PROCESS_NAME};
+use crate::tray::TrayMessage;
 
 // Helper functions for hotkey parsing
 pub fn key_string_to_keybdkey(key_str: &str) -> Option<KeybdKey> {
@@ -118,7 +119,7 @@ pub fn parse_hotkey_config(hotkey_str: &str) -> (Option<KeybdKey>, Vec<KeybdKey>
     (main_key, modifier_keys)
 }
 
-pub fn register_hotkey(main_key: KeybdKey, modifier_keys: Vec<KeybdKey>) {
+pub fn register_hotkey(tx: Sender<TrayMessage>, main_key: KeybdKey, modifier_keys: Vec<KeybdKey>) {
     let modifier_keys_clone = modifier_keys.clone();
     main_key.bind(move || {
         let mut all_modifiers_pressed = true;
@@ -131,14 +132,7 @@ pub fn register_hotkey(main_key: KeybdKey, modifier_keys: Vec<KeybdKey>) {
             }
         }
         if all_modifiers_pressed {
-            match hearthstone::reconnect(PROCESS_NAME) {
-                Ok(_) => {
-                    info!("重连操作成功。");
-                }
-                Err(e) => {
-                    error!("重连操作失败: {}", e);
-                }
-            }
+           let _ = tx.send(TrayMessage::Reconnect);
         }
     });
 }

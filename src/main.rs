@@ -14,10 +14,13 @@ mod process;
 mod tray;
 
 const PROCESS_NAME: &str = "Hearthstone.exe";
-const _LOGFILE_NAME: &str = "Hearthstone.log";
+const LOGFILE_NAME: &str = "Hearthstone.log";
 
 fn main() -> Result<()> {
     logger::init_logger()?;
+
+    let mut hs_ip: Option<String> = None;
+    let mut hs_port: Option<u16> = None;
 
     let app_config = config::get_config();
     info!(
@@ -45,7 +48,7 @@ fn main() -> Result<()> {
     let (main_key_opt, modifier_keys_vec) = hotkey::parse_hotkey_config(&reconnect_hotkey_clone);
     let mut current_registered_key: Option<inputbot::KeybdKey> = None;
     if let Some(main_key_to_bind) = main_key_opt {
-        hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
+        hotkey::register_hotkey(tray_tx.clone(), main_key_to_bind, modifier_keys_vec);
         current_registered_key = Some(main_key_to_bind);
     } else {
         warn!(
@@ -56,11 +59,14 @@ fn main() -> Result<()> {
     std::thread::spawn(move || {
         inputbot::handle_input_events();
     });
+    let log_tx_clone = log_tx.clone();
     std::thread::spawn(move || {
-        hearthstone::watch_log(log_tx).map_err(|e| {
+        hearthstone::watch_log(log_tx_clone).map_err(|e| {
             error!("日志监控线程发生错误: {}", e);
             e
-        }).unwrap();
+        }).unwrap_or_else(|e| {
+            error!("日志监控线程意外退出。错误: {}", e);
+        });
     });
 
     loop {
@@ -75,7 +81,7 @@ fn main() -> Result<()> {
                                 break;
                             }
                             tray::TrayMessage::Reconnect => {
-                                match hearthstone::reconnect(PROCESS_NAME) {
+                                match hearthstone::reconnect(hs_ip.as_deref(), hs_port) {
                                     Ok(_) => {
                                         info!("重连操作成功。");
                                     }
@@ -115,7 +121,7 @@ fn main() -> Result<()> {
                                         info!("正在注销当前热键: {:?}", current_key);
                                         hotkey::unregister_hotkey(current_key);
                                     }
-                                    hotkey::register_hotkey(main_key_to_bind, modifier_keys_vec);
+                                    hotkey::register_hotkey(tray_tx.clone(),main_key_to_bind, modifier_keys_vec);
                                     current_registered_key = Some(main_key_to_bind);
                                 } else {
                                     warn!(
@@ -132,7 +138,9 @@ fn main() -> Result<()> {
             recv(log_rx) -> msg => {
                 match msg {
                     Ok(log_msg) => {
-                        info!("收到日志消息: {:?}", log_msg);
+                        info!("检测到炉石IP变化: {:?}", log_msg);
+                        hs_ip = Some(log_msg.ip);
+                        hs_port = Some(log_msg.port);
                     }
                     Err(e) => error!("接收日志消息失败: {}", e),
                 }

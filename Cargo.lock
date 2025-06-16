@@ -2137,6 +2137,7 @@ dependencies = [
  "inputbot",
  "log",
  "notify",
+ "regex",
  "serde",
  "simplelog",
  "sysinfo 0.35.2",

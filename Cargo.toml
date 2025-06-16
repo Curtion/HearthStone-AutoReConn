@@ -20,6 +20,7 @@ log = "0.4"
 simplelog = { version = "0.12", features = ["local-offset"] }
 sysinfo = "0.35.2"
 notify = "8.0.0"
+regex = "1.11.1"
 
 [dependencies.windows]
 version = "0.61"

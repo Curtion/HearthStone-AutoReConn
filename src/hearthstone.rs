@@ -4,8 +4,10 @@ use log::{error, info};
 use notify::Config;
 use notify::PollWatcher;
 use notify::{Event, EventKind, RecursiveMode, Result, Watcher};
+use regex::Regex;
 use std::fs;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::net::Ipv4Addr;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -16,7 +18,7 @@ use crate::process;
 
 #[derive(Debug)]
 pub struct LogMessage {
-    pub ip: String,
+    pub ip: Option<Ipv4Addr>,
     pub port: u16,
 }
 
@@ -85,7 +87,7 @@ pub fn watch_log(log_tx: Sender<LogMessage>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn reconnect(ip: Option<&str>, port: Option<u16>) -> anyhow::Result<()> {
+pub fn reconnect(ip: Option<Ipv4Addr>, port: Option<u16>) -> anyhow::Result<()> {
     let process_name = PROCESS_NAME;
     let data = process::get_process_by_name(process_name)?;
     if data.is_empty() {
@@ -111,6 +113,30 @@ pub fn reconnect(ip: Option<&str>, port: Option<u16>) -> anyhow::Result<()> {
         ));
     }
     info!("获取到的网络信息: {:#?}", data);
+    data.iter()
+        .find(|info| {
+            if let (Some(ip), Some(port)) = (ip, port) {
+                info.remote_addr == ip && info.remote_port == port
+            } else {
+                false
+            }
+        })
+        .map_or_else(
+            || Err(anyhow::anyhow!("没有找到匹配的网络信息。")),
+            |info| {
+                info!(
+                    "正在关闭炉石网络连接 {}:{}",
+                    info.remote_addr, info.remote_port
+                );
+                network::close_tcp_connection(
+                    info.local_addr,
+                    info.local_port,
+                    info.remote_addr,
+                    info.remote_port,
+                )?;
+                Ok(())
+            },
+        )?;
     Ok(())
 }
 
@@ -129,7 +155,11 @@ fn get_newest_folder(dir_path: &str) -> anyhow::Result<Option<PathBuf>> {
     Ok(newest)
 }
 
-fn read_new_lines(log_tx: Sender<LogMessage>, file_path: &Path, last_size: &mut u64) -> anyhow::Result<()> {
+fn read_new_lines(
+    log_tx: Sender<LogMessage>,
+    file_path: &Path,
+    last_size: &mut u64,
+) -> anyhow::Result<()> {
     let current_size = fs::metadata(file_path)?.len();
 
     if current_size > *last_size {
@@ -139,10 +169,17 @@ fn read_new_lines(log_tx: Sender<LogMessage>, file_path: &Path, last_size: &mut 
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let line = line?;
-            log_tx.send(LogMessage {
-                ip: line,
-                port: 1142,
-            })?;
+            let re = Regex::new(r"Network\.GotoGameServe\(\).*?address=\s([0-9.]+):(\d+)")?;
+            if let Some(caps) = re.captures(&line) {
+                if let (Some(ip_match), Some(port_match)) = (caps.get(1), caps.get(2)) {
+                    if let Ok(port) = port_match.as_str().parse::<u16>() {
+                        log_tx.send(LogMessage {
+                            ip: ip_match.as_str().parse::<Ipv4Addr>().ok(),
+                            port,
+                        })?;
+                    }
+                }
+            }
         }
 
         *last_size = current_size;

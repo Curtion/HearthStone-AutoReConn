@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::net::Ipv4Addr;
+
 use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 use log::{error, info, warn};
@@ -19,7 +21,7 @@ const LOGFILE_NAME: &str = "Hearthstone.log";
 fn main() -> Result<()> {
     logger::init_logger()?;
 
-    let mut hs_ip: Option<String> = None;
+    let mut hs_ip: Option<Ipv4Addr> = None;
     let mut hs_port: Option<u16> = None;
 
     let app_config = config::get_config();
@@ -61,10 +63,7 @@ fn main() -> Result<()> {
     });
     let log_tx_clone = log_tx.clone();
     std::thread::spawn(move || {
-        hearthstone::watch_log(log_tx_clone).map_err(|e| {
-            error!("日志监控线程发生错误: {}", e);
-            e
-        }).unwrap_or_else(|e| {
+        hearthstone::watch_log(log_tx_clone).unwrap_or_else(|e| {
             error!("日志监控线程意外退出。错误: {}", e);
         });
     });
@@ -81,7 +80,7 @@ fn main() -> Result<()> {
                                 break;
                             }
                             tray::TrayMessage::Reconnect => {
-                                match hearthstone::reconnect(hs_ip.as_deref(), hs_port) {
+                                match hearthstone::reconnect(hs_ip, hs_port) {
                                     Ok(_) => {
                                         info!("重连操作成功。");
                                     }
@@ -139,7 +138,7 @@ fn main() -> Result<()> {
                 match msg {
                     Ok(log_msg) => {
                         info!("检测到炉石IP变化: {:?}", log_msg);
-                        hs_ip = Some(log_msg.ip);
+                        hs_ip = log_msg.ip;
                         hs_port = Some(log_msg.port);
                     }
                     Err(e) => error!("接收日志消息失败: {}", e),

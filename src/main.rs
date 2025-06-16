@@ -63,9 +63,18 @@ fn main() -> Result<()> {
     });
     let log_tx_clone = log_tx.clone();
     std::thread::spawn(move || {
-        hearthstone::watch_log(log_tx_clone).unwrap_or_else(|e| {
-            error!("日志监控线程意外退出。错误: {}", e);
-        });
+        loop {
+            match hearthstone::watch_log(log_tx_clone.clone()) {
+                Ok(_) => {
+                    info!("日志监控线程正常退出");
+                    break;
+                }
+                Err(e) => {
+                    error!("日志监控线程意外退出。错误: {} 5秒后重新启动...", e);
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                }
+            }
+        }
     });
 
     loop {

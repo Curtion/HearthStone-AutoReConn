@@ -5,6 +5,7 @@ use std::net::Ipv4Addr;
 use anyhow::Result;
 use crossbeam_channel::{select, unbounded};
 use log::{error, info, warn};
+use is_elevated::is_elevated;
 
 mod config;
 mod gui;
@@ -20,6 +21,11 @@ const LOGFILE_NAME: &str = "Hearthstone.log";
 
 fn main() -> Result<()> {
     logger::init_logger()?;
+
+    if !is_elevated() {
+        error!("应用未以管理员权限运行, 软件无法正常工作。");
+        return Err(anyhow::anyhow!("应用未以管理员权限运行, 软件无法正常工作。"));
+    }
 
     let mut hs_ip: Option<Ipv4Addr> = None;
     let mut hs_port: Option<u16> = None;

@@ -112,11 +112,13 @@ pub fn reconnect(ip: Option<Ipv4Addr>, port: Option<u16>) -> anyhow::Result<()> 
             pid
         ));
     }
-    info!("获取到的网络信息: {:#?}", data);
+    let connections: Vec<String> = data.iter().map(|p| format!("{}", p)).collect();
+    info!("获取到的网络信息: {}", connections.join(", "));
+
     data.iter()
         .find(|info| {
             if let (Some(ip), Some(port)) = (ip, port) {
-                info.remote_addr == ip && info.remote_port == port
+                info.remote_addr_as_ipv4() == ip && info.remote_port_as_u16() == port
             } else {
                 false
             }
@@ -128,12 +130,7 @@ pub fn reconnect(ip: Option<Ipv4Addr>, port: Option<u16>) -> anyhow::Result<()> 
                     "正在关闭炉石网络连接 {}:{}",
                     info.remote_addr, info.remote_port
                 );
-                network::close_tcp_connection(
-                    info.local_addr,
-                    info.local_port,
-                    info.remote_addr,
-                    info.remote_port,
-                )?;
+                network::close_tcp_connection(info)?;
                 Ok(())
             },
         )?;

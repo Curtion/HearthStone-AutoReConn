@@ -1,19 +1,56 @@
-use std::net::Ipv4Addr;
-
 use anyhow::Result;
+use std::fmt;
+use std::net::Ipv4Addr;
 use windows::Win32::Foundation::{NO_ERROR, WIN32_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
     GetExtendedTcpTable, MIB_TCP_STATE_DELETE_TCB, MIB_TCPROW_LH, MIB_TCPROW_LH_0,
     MIB_TCPTABLE_OWNER_MODULE, SetTcpEntry, TCP_TABLE_OWNER_MODULE_ALL,
 };
-use windows::Win32::Networking::WinSock::{IN_ADDR, ntohs};
 
-#[derive(Debug)]
 pub struct NetworkInfo {
-    pub local_addr: Ipv4Addr,
-    pub local_port: u16,
-    pub remote_addr: Ipv4Addr,
-    pub remote_port: u16,
+    pub local_addr: u32,
+    pub local_port: u32,
+    pub remote_addr: u32,
+    pub remote_port: u32,
+}
+
+impl NetworkInfo {
+    /// 将 local_addr (u32) 转换为 Ipv4Addr
+    /// Windows API 返回的 IP 地址是网络字节序的 u32
+    pub fn local_addr_as_ipv4(&self) -> Ipv4Addr {
+        Ipv4Addr::from(self.local_addr.to_be())
+    }
+
+    /// 将 local_port (u32) 转换为 u16
+    /// Windows API 返回的端口是网络字节序的 u32，实际值在低16位
+    pub fn local_port_as_u16(&self) -> u16 {
+        (self.local_port.to_be() >> 16) as u16
+    }
+
+    /// 将 remote_addr (u32) 转换为 Ipv4Addr
+    /// Windows API 返回的 IP 地址是网络字节序的 u32
+    pub fn remote_addr_as_ipv4(&self) -> Ipv4Addr {
+        Ipv4Addr::from(self.remote_addr.to_be())
+    }
+
+    /// 将 remote_port (u32) 转换为 u16
+    /// Windows API 返回的端口是网络字节序的 u32，实际值在低16位
+    pub fn remote_port_as_u16(&self) -> u16 {
+        (self.remote_port.to_be() >> 16) as u16
+    }
+}
+
+impl fmt::Display for NetworkInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{} -> {}:{}",
+            self.local_addr_as_ipv4(),
+            self.local_port_as_u16(),
+            self.remote_addr_as_ipv4(),
+            self.remote_port_as_u16()
+        )
+    }
 }
 
 pub fn get_process_by_pid(pid: u32) -> Result<Vec<NetworkInfo>> {
@@ -60,48 +97,13 @@ pub fn get_process_by_pid(pid: u32) -> Result<Vec<NetworkInfo>> {
         let table_ptr = tcp_table.table.as_ptr();
 
         for i in 0..tcp_table.dwNumEntries {
-            let entry = unsafe { &*table_ptr.add(i as usize) };
-
-            // 只处理匹配的PID
+            let entry = unsafe { &*table_ptr.add(i as usize) }; // 只处理匹配的PID
             if entry.dwOwningPid == pid {
-                let local_addr = unsafe {
-                    IN_ADDR {
-                        S_un: std::mem::transmute(entry.dwLocalAddr),
-                    }
-                };
-                let remote_addr = unsafe {
-                    IN_ADDR {
-                        S_un: std::mem::transmute(entry.dwRemoteAddr),
-                    }
-                };
-
-                // 将网络字节序转换为主机字节序
-                let local_port = unsafe { ntohs(entry.dwLocalPort as u16) };
-                let remote_port = unsafe { ntohs(entry.dwRemotePort as u16) };
-
-                let local_addr_str = unsafe {
-                    Ipv4Addr::new(
-                        local_addr.S_un.S_un_b.s_b1,
-                        local_addr.S_un.S_un_b.s_b2,
-                        local_addr.S_un.S_un_b.s_b3,
-                        local_addr.S_un.S_un_b.s_b4,
-                    )
-                };
-
-                let remote_addr_str = unsafe {
-                    Ipv4Addr::new(
-                        remote_addr.S_un.S_un_b.s_b1,
-                        remote_addr.S_un.S_un_b.s_b2,
-                        remote_addr.S_un.S_un_b.s_b3,
-                        remote_addr.S_un.S_un_b.s_b4,
-                    )
-                };
-
                 network_infos.push(NetworkInfo {
-                    local_addr: local_addr_str,
-                    local_port,
-                    remote_addr: remote_addr_str,
-                    remote_port,
+                    local_addr: entry.dwLocalAddr,
+                    local_port: entry.dwLocalPort,
+                    remote_addr: entry.dwRemoteAddr,
+                    remote_port: entry.dwRemotePort,
                 });
             }
         }
@@ -110,28 +112,22 @@ pub fn get_process_by_pid(pid: u32) -> Result<Vec<NetworkInfo>> {
     Ok(network_infos)
 }
 
-pub fn close_tcp_connection(
-    local_addr: Ipv4Addr,
-    local_port: u16,
-    remote_addr: Ipv4Addr,
-    remote_port: u16,
-) -> Result<()> {
+pub fn close_tcp_connection(network_info: &NetworkInfo) -> Result<()> {
     unsafe {
         let tcp_row = MIB_TCPROW_LH {
             Anonymous: MIB_TCPROW_LH_0 {
                 State: MIB_TCP_STATE_DELETE_TCB,
             },
-            dwLocalAddr: u32::from_be_bytes(local_addr.octets()),
-            dwLocalPort: (local_port as u32).to_be(),
-            dwRemoteAddr: u32::from_be_bytes(remote_addr.octets()),
-            dwRemotePort: (remote_port as u32).to_be(),
+            dwLocalAddr: network_info.local_addr,
+            dwLocalPort: network_info.local_port,
+            dwRemoteAddr: network_info.remote_addr,
+            dwRemotePort: network_info.remote_port,
         };
 
         let result = SetTcpEntry(&tcp_row);
-
         match WIN32_ERROR(result) {
             NO_ERROR => Ok(()),
-            _ => Err(anyhow::anyhow!("关闭TCP连接失败，错误代码: {}", result)),
+            _ => Err(anyhow::anyhow!("关闭TCP连接失败, 错误代码: {}", result)),
         }
     }
 }

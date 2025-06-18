@@ -95,10 +95,9 @@ impl Render for Setting {
             .font_weight(gpui::FontWeight::MEDIUM)
             .rounded(px(8.)) // 圆角
             .cursor_pointer()
-            .child("保存快捷键");
-        // shadcn/ui 风格的按钮通常有 hover 和 active 状态，这里用 gpui 模拟
-        // .hover(|s| s.bg(rgb(0x1d4ed8))) // hover 时颜色变深
-        // .active(|s| s.bg(rgb(0x1e40af))); // active 时颜色更深
+            .child("保存快捷键")
+            .hover(|s| s.bg(rgb(0x1d4ed8))) // hover 时颜色变深
+            .active(|s| s.bg(rgb(0x1e40af))); // active 时颜色更深
 
         button
             .interactivity()
@@ -106,11 +105,8 @@ impl Render for Setting {
                 let new_hotkey = if !this.current_pressed_keys.is_empty() {
                     this.current_pressed_keys.to_string()
                 } else {
-                    // 如果没有按键，可以考虑不清空或使用默认值，或者提示用户
-                    this.hotkeys.to_string() // 保持不变或设置为一个默认值
-                    // "Alt+E".to_string() // 或者恢复默认
+                    this.hotkeys.to_string()
                 };
-                // 只有在 current_pressed_keys 不为空时才更新和发送消息
                 if !this.current_pressed_keys.is_empty() {
                     this.hotkeys = SharedString::from(new_hotkey.clone());
                     tx.send(GuiMessage::SaveHotKeys(new_hotkey))
@@ -118,7 +114,6 @@ impl Render for Setting {
                             error!("无法发送消息: {}", e);
                         });
                 } else {
-                    // 可选：提示用户需要先按下按键组合
                     log::info!("没有新的按键组合被按下，未保存。");
                 }
             }));

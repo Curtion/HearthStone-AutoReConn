@@ -1,7 +1,7 @@
 use anyhow::Result;
 use log::info;
 use simplelog::*;
-use std::fs::File;
+use std::fs::OpenOptions;
 
 pub fn init_logger() -> Result<()> {
     // 获取exe所在目录
@@ -9,8 +9,11 @@ pub fn init_logger() -> Result<()> {
     let exe_dir = exe_path.parent().unwrap();
     let log_file_path = exe_dir.join("hsarec.log");
 
-    // 创建日志文件
-    let log_file = File::create(&log_file_path)?;
+    // 以追加模式打开日志文件
+    let log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file_path)?;
 
     let config = ConfigBuilder::new()
         .add_filter_allow_str("hsarec")

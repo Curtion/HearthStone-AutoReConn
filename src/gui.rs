@@ -193,6 +193,14 @@ pub fn app(tx: Sender<GuiMessage>, reconnect_hotkey: &str) -> Result<()> {
         })
         .detach();
 
+        cx.on_window_closed(move |app| {
+            if app.windows().is_empty() {
+                log::info!("所有窗口已关闭，退出应用程序。");
+                app.quit();
+            }
+        })
+        .detach();
+
         cx.activate(true);
     });
     Ok(())

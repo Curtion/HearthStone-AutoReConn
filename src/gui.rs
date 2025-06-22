@@ -1,19 +1,15 @@
-use anyhow::Result;
 use crossbeam_channel::Sender;
-use gpui::{
-    App, Application, Bounds, Context, SharedString, TitlebarOptions, Window, WindowBounds,
-    WindowOptions, div, prelude::*, px, rgb, size,
-};
+use gpui::{Context, SharedString, Window, div, prelude::*, px, rgb};
 use log::error;
 
 pub enum GuiMessage {
     SaveHotKeys(String),
 }
 
-struct Setting {
-    hotkeys: SharedString,
-    current_pressed_keys: SharedString,
-    tx: Sender<GuiMessage>,
+pub struct Setting {
+    pub hotkeys: SharedString,
+    pub current_pressed_keys: SharedString,
+    pub tx: Sender<GuiMessage>,
 }
 
 impl Render for Setting {
@@ -123,80 +119,4 @@ impl Render for Setting {
             .child(pressed_keys_display)
             .child(button)
     }
-}
-
-pub fn app(tx: Sender<GuiMessage>, reconnect_hotkey: &str) -> Result<()> {
-    let reconnect_hotkey = reconnect_hotkey.to_string();
-
-    Application::new().run(|cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(600.), px(600.0)), cx);
-        let window = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("快捷键设置".into()),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-                |_, cx| {
-                    cx.new(|_| Setting {
-                        hotkeys: reconnect_hotkey.into(),
-                        current_pressed_keys: SharedString::from(""),
-                        tx,
-                    })
-                },
-            )
-            .unwrap();
-        let view = window.update(cx, |_, _, cx| cx.entity()).unwrap();
-        cx.observe_keystrokes(move |event, _window, cx| {
-            let keystroke: &gpui::Keystroke = &event.keystroke;
-            // 构建按键字符串
-            let mut key_parts = Vec::new();
-            // 添加修饰键
-            if keystroke.modifiers.control {
-                key_parts.push("Ctrl".to_string());
-            }
-            if keystroke.modifiers.alt {
-                key_parts.push("Alt".to_string());
-            }
-            if keystroke.modifiers.shift {
-                key_parts.push("Shift".to_string());
-            }
-            if keystroke.modifiers.platform {
-                key_parts.push("Win".to_string());
-            }
-            // 添加主键
-            let main_key = match keystroke.key.as_str() {
-                "escape" => "Esc",
-                "enter" => "Enter",
-                "space" => "Space",
-                "tab" => "Tab",
-                key => key,
-            };
-            key_parts.push(main_key.to_uppercase());
-            let pressed_keys = if key_parts.len() > 1 {
-                key_parts.join("+")
-            } else {
-                key_parts.join("")
-            };
-            view.update(cx, |view, cx| {
-                view.current_pressed_keys = SharedString::from(pressed_keys.clone());
-                cx.notify();
-            })
-        })
-        .detach();
-
-        cx.on_window_closed(move |app| {
-            if app.windows().is_empty() {
-                log::info!("所有窗口已关闭，退出应用程序。");
-                app.quit();
-            }
-        })
-        .detach();
-
-        cx.activate(true);
-    });
-    Ok(())
 }

@@ -1,5 +1,4 @@
-use crossbeam_channel::Sender;
-use crossbeam_channel::unbounded;
+use flume::{Sender, unbounded};
 use log::{error, info};
 use notify::Config;
 use notify::PollWatcher;

@@ -1,7 +1,8 @@
-use crossbeam_channel::Sender;
+use flume::Sender;
 use gpui::{Context, SharedString, Window, div, prelude::*, px, rgb};
 use log::error;
 
+#[derive(Debug, Clone)]
 pub enum GuiMessage {
     SaveHotKeys(String),
 }

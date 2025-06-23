@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossbeam_channel::Sender;
+use flume::Sender;
 use tray_item::{IconSource, TrayItem};
 
 #[derive(Debug, Clone)]

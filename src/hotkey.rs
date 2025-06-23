@@ -1,4 +1,4 @@
-use crossbeam_channel::Sender;
+use flume::Sender;
 use inputbot::KeybdKey;
 use log::warn;
 

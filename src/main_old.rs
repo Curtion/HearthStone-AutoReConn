@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use gpui::AppContext;
-use std::{net::Ipv4Addr, sync::{Arc, Mutex}};
+use std::net::Ipv4Addr;
+use std::sync::{Arc, Mutex};
 
 use flume::{Selector, unbounded};
 use gpui::{
@@ -32,10 +33,8 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!(
             "应用未以管理员权限运行, 软件无法正常工作。"
         ));
-    }
-
-    let mut hs_ip: Arc<Mutex<Option<Ipv4Addr>>> = Arc::new(Mutex::new(None));
-    let mut hs_port: Arc<Mutex<Option<u16>>> = Arc::new(Mutex::new(None));
+    }    let hs_ip: Arc<Mutex<Option<Ipv4Addr>>> = Arc::new(Mutex::new(None));
+    let hs_port: Arc<Mutex<Option<u16>>> = Arc::new(Mutex::new(None));
 
     let app_config = config::get_config();
     info!(
@@ -86,14 +85,13 @@ fn main() -> anyhow::Result<()> {
                     error!("日志监控线程意外退出。错误: {} 5秒后重新启动...", e);
                     std::thread::sleep(std::time::Duration::from_secs(5));
                 }
-            }
-        }
+            }        }
     });
-
-    let hs_ip_clone = Arc::clone(&hs_ip);
-    let hs_port_clone = Arc::clone(&hs_port);
-    std::thread::spawn(move ||  {
-        Selector::new()
+    
+    let hs_ip_clone = hs_ip.clone();
+    let hs_port_clone = hs_port.clone();    std::thread::spawn(move || {
+        if let Err(e) = (|| -> anyhow::Result<()> {
+            Selector::new()
             .recv(&tray_rx, |msg| -> anyhow::Result<()> {
                 match msg {
                     Ok(tray_msg) => {
@@ -104,13 +102,9 @@ fn main() -> anyhow::Result<()> {
                                 return Ok(());
                             }
                             tray::TrayMessage::Reconnect => {
-                                let hs_ip = hs_ip_clone
-                                    .lock()
-                                    .map_err(|e| anyhow::anyhow!("无法获取炉石IP锁: {}", e))?;
-                                let hs_port = hs_port_clone
-                                    .lock()
-                                    .map_err(|e| anyhow::anyhow!("无法获取炉石端口锁: {}", e))?;
-                                match hearthstone::reconnect(*hs_ip, *hs_port) {
+                                let ip = hs_ip_clone.lock().unwrap().clone();
+                                let port = hs_port_clone.lock().unwrap().clone();
+                                match hearthstone::reconnect(ip, port) {
                                     Ok(_) => {
                                         info!("重连操作成功。");
                                     }
@@ -166,19 +160,96 @@ fn main() -> anyhow::Result<()> {
                     Err(e) => error!("接收GUI消息失败: {}", e),
                 }
                 Ok(())
-            })
-            .recv(&log_rx, |msg| -> anyhow::Result<()> {
+            })            .recv(&log_rx, |msg| -> anyhow::Result<()> {
                 match msg {
                     Ok(log_msg) => {
                         info!("检测到炉石IP变化: {:?}", log_msg);
-                        *hs_ip.lock().unwrap() = log_msg.ip;
-                        *hs_port.lock().unwrap() = Some(log_msg.port);
+                        *hs_ip_clone.lock().unwrap() = log_msg.ip;
+                        *hs_port_clone.lock().unwrap() = Some(log_msg.port);
                     }
                     Err(e) => error!("接收日志消息失败: {}", e),
                 }
                 Ok(())
-            })
-            .wait()?
+            })            .wait();
+            Ok(())
+        })() {
+            error!("主消息处理线程退出，错误: {}", e);
+        }
+    });
+        // loop {
+        //     flume::select! {
+        //         recv(tray_rx) -> msg => {
+        //             match msg {
+        //                 Ok(tray_msg) => {
+        //                     info!("收到托盘消息: {:?}", tray_msg);
+        //                     match tray_msg {
+        //                         tray::TrayMessage::Exit => {
+        //                             info!("收到退出消息，正在退出应用...");
+        //                             return Ok(());
+        //                         }
+        //                         tray::TrayMessage::Reconnect => {
+        //                             match hearthstone::reconnect(hs_ip, hs_port) {
+        //                                 Ok(_) => {
+        //                                     info!("重连操作成功。");
+        //                                 }
+        //                                 Err(e) => {
+        //                                     error!("重连操作失败: {}", e);
+        //                                 }
+        //                             }
+        //                         }
+        //                         tray::TrayMessage::Setting => {
+        //                             // TODO 显示窗口
+        //                         }
+        //                         tray::TrayMessage::UpdateMenu(config) => {
+        //                             _tray_item = tray::setup_tray(tray_tx.clone(), &config)?;
+        //                         }
+        //                     }
+        //                 }
+        //                 Err(e) => error!("接收托盘消息失败: {}", e),
+        //             }
+        //         }
+        //         recv(gui_rx) -> msg => {
+        //             match msg {
+        //                 Ok(gui_msg) => {
+        //                     match gui_msg {
+        //                         gui::GuiMessage::SaveHotKeys(reconnect_hotkey) => {
+        //                             let mut config = app_config.write()
+        //                                 .map_err(|e| anyhow::anyhow!("无法获取配置写入锁: {}", e))?;
+        //                             config.reconnect_hotkey = reconnect_hotkey.clone();
+        //                             config.save()?;
+        //                             tray_tx.send(tray::TrayMessage::UpdateMenu(reconnect_hotkey.clone()))?;
+        //                             let (main_key_opt, modifier_keys_vec) = hotkey::parse_hotkey_config(&reconnect_hotkey);
+        //                             if let Some(main_key_to_bind) = main_key_opt {
+        //                                 if let Some(current_key) = current_registered_key {
+        //                                     info!("正在注销当前热键: {:?}", current_key);
+        //                                     hotkey::unregister_hotkey(current_key);
+        //                                 }
+        //                                 hotkey::register_hotkey(tray_tx.clone(),main_key_to_bind, modifier_keys_vec);
+        //                                 current_registered_key = Some(main_key_to_bind);
+        //                             } else {
+        //                                 warn!(
+        //                                     "警告: 无法从配置文件解析或注册主热键: {}。将不会注册热键。",
+        //                                     reconnect_hotkey_clone
+        //                                 );
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //                 Err(e) => error!("接收GUI消息失败: {}", e),
+        //             }
+        //         }
+        //         recv(log_rx) -> msg => {
+        //             match msg {
+        //                 Ok(log_msg) => {
+        //                     info!("检测到炉石IP变化: {:?}", log_msg);
+        //                     hs_ip = log_msg.ip;
+        //                     hs_port = Some(log_msg.port);
+        //                 }
+        //                 Err(e) => error!("接收日志消息失败: {}", e),
+        //             }
+        //         }
+        //     }
+        // }
     });
 
     Application::new().run(|cx: &mut App| {

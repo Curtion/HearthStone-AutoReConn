@@ -1,16 +1,22 @@
-use flume::Sender;
+use flume::{Sender,Receiver};
 use gpui::{Context, SharedString, Window, div, prelude::*, px, rgb};
 use log::error;
 
 #[derive(Debug, Clone)]
-pub enum GuiMessage {
+pub enum GuiOutMessage {
     SaveHotKeys(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum GuiInMessage {
+    Quit,
 }
 
 pub struct Setting {
     pub hotkeys: SharedString,
     pub current_pressed_keys: SharedString,
-    pub tx: Sender<GuiMessage>,
+    pub tx: Sender<GuiOutMessage>,
+    pub rx: Receiver<GuiInMessage>,
 }
 
 impl Render for Setting {
@@ -106,7 +112,7 @@ impl Render for Setting {
                 };
                 if !this.current_pressed_keys.is_empty() {
                     this.hotkeys = SharedString::from(new_hotkey.clone());
-                    tx.send(GuiMessage::SaveHotKeys(new_hotkey))
+                    tx.send(GuiOutMessage::SaveHotKeys(new_hotkey))
                         .unwrap_or_else(|e| {
                             error!("无法发送消息: {}", e);
                         });

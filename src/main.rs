@@ -47,8 +47,10 @@ fn main() -> anyhow::Result<()> {
 
     // 托盘线程
     let (tray_tx, tray_rx) = unbounded::<tray::TrayMessage>();
-    // GUI线程
-    let (gui_tx, gui_rx) = unbounded::<gui::GuiMessage>();
+    // GUI线程(从GUI发送消息)
+    let (gui_out_tx, gui_out_rx) = unbounded::<gui::GuiOutMessage>();
+    // GUI线程(从GUI接收消息)
+    let (gui_in_tx, gui_in_rx) = unbounded::<gui::GuiInMessage>();
     // 日志监控线程
     let (log_tx, log_rx) = unbounded::<hearthstone::LogMessage>();
 
@@ -92,7 +94,7 @@ fn main() -> anyhow::Result<()> {
 
     let hs_ip_clone = Arc::clone(&hs_ip);
     let hs_port_clone = Arc::clone(&hs_port);
-    std::thread::spawn(move ||  {
+    std::thread::spawn(move || ->anyhow::Result<()>  {
         Selector::new()
             .recv(&tray_rx, |msg| -> anyhow::Result<()> {
                 match msg {
@@ -131,10 +133,10 @@ fn main() -> anyhow::Result<()> {
                 }
                 Ok(())
             })
-            .recv(&gui_rx, |msg| -> anyhow::Result<()> {
+            .recv(&gui_out_rx, |msg| -> anyhow::Result<()> {
                 match msg {
                     Ok(gui_msg) => match gui_msg {
-                        gui::GuiMessage::SaveHotKeys(reconnect_hotkey) => {
+                        gui::GuiOutMessage::SaveHotKeys(reconnect_hotkey) => {
                             let mut config = app_config
                                 .write()
                                 .map_err(|e| anyhow::anyhow!("无法获取配置写入锁: {}", e))?;
@@ -178,7 +180,8 @@ fn main() -> anyhow::Result<()> {
                 }
                 Ok(())
             })
-            .wait()?
+            .wait()?;
+            Ok(())
     });
 
     Application::new().run(|cx: &mut App| {
@@ -201,7 +204,8 @@ fn main() -> anyhow::Result<()> {
                     cx.new(|_| Setting {
                         hotkeys: reconnect_hotkey.into(),
                         current_pressed_keys: SharedString::from(""),
-                        tx: gui_tx,
+                        tx: gui_out_tx,
+                        rx: gui_in_rx,
                     })
                 },
             )

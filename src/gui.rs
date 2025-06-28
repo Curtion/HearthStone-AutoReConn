@@ -1,6 +1,7 @@
-use flume::{Sender,Receiver};
+use flume::Sender;
 use gpui::{Context, SharedString, Window, div, prelude::*, px, rgb};
 use log::error;
+use windows::Win32::Foundation::HWND;
 
 #[derive(Debug, Clone)]
 pub enum GuiOutMessage {
@@ -9,14 +10,16 @@ pub enum GuiOutMessage {
 
 #[derive(Debug, Clone)]
 pub enum GuiInMessage {
-    Quit,
+    Exit,
+    Show,
+    Hide
 }
 
 pub struct Setting {
     pub hotkeys: SharedString,
     pub current_pressed_keys: SharedString,
     pub tx: Sender<GuiOutMessage>,
-    pub rx: Receiver<GuiInMessage>,
+    pub window_handle: Option<HWND>,
 }
 
 impl Render for Setting {

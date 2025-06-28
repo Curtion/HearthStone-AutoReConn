@@ -114,7 +114,6 @@ fn main() -> anyhow::Result<()> {
                             info!("收到托盘消息: {:?}", tray_msg);
                             match tray_msg {
                                 tray::TrayMessage::Exit => {
-                                    info!("收到退出消息，正在退出应用...");
                                     gui_in_tx_clone
                                         .send(gui::GuiInMessage::Exit)
                                         .map_err(|e| anyhow::anyhow!("无法发送GUI消息: {}", e))?;
@@ -285,7 +284,7 @@ fn main() -> anyhow::Result<()> {
                 let result: anyhow::Result<()> =
                     window_clone.update(cx, |view, window, cx| match gui_msg {
                         gui::GuiInMessage::Exit => {
-                            info!("正在退出应用...");
+                            info!("退出应用...");
                             cx.quit();
                         }
                         gui::GuiInMessage::Show => {

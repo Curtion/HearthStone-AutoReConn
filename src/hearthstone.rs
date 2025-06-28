@@ -127,7 +127,8 @@ pub fn reconnect(ip: Option<Ipv4Addr>, port: Option<u16>) -> anyhow::Result<()> 
             |info| {
                 info!(
                     "正在关闭炉石网络连接 {}:{}",
-                    info.remote_addr, info.remote_port
+                    info.remote_addr_as_ipv4(),
+                    info.remote_port_as_u16()
                 );
                 network::close_tcp_connection(info)?;
                 Ok(())

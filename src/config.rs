@@ -13,7 +13,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            reconnect_hotkey: "Ctrl+Shift+F12".to_string(),
+            reconnect_hotkey: "Shift+Alt+R".to_string(),
         }
     }
 }

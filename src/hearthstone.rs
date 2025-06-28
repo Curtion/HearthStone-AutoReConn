@@ -61,8 +61,11 @@ pub fn watch_log(log_tx: Sender<LogMessage>) -> anyhow::Result<()> {
 
     info!("正在监控日志文件: {:?}", path);
 
-    // 记录文件的初始大小
-    let mut last_size = fs::metadata(&path)?.len();
+    // 先读取一次旧日志,再监控新日志
+    let mut last_size = 0;
+    if let Err(e) = read_new_lines(log_tx.clone(), &path, &mut last_size) {
+        error!("读取初始日志时发生错误: {:?}", e);
+    }
 
     watcher.watch(&path, RecursiveMode::NonRecursive)?;
     for res in rx {

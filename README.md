@@ -38,4 +38,6 @@
   </trustInfo>
 ```
 
+这是`GPUI`源码中`manifest`清单的: [位置](https://github.com/zed-industries/zed/blob/v0.188.4/crates/gpui/resources/windows/gpui.manifest.xml)
+
 以便程序可以以管理员权限运行。或者你可以fork一份`GPUI`源码使用`Patch`方案, 而不是修改本地源码。

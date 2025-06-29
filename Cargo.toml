@@ -30,7 +30,7 @@ features = [
   "Win32_Networking_WinSock",
   "Win32_UI_WindowsAndMessaging",
   "Win32_Foundation",
-  "Win32_UI_Input_KeyboardAndMouse"
+  "Win32_UI_Input_KeyboardAndMouse",
 ]
 
 [build-dependencies]

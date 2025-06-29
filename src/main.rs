@@ -12,6 +12,7 @@ use std::{
     net::Ipv4Addr,
     sync::{Arc, Mutex},
 };
+use tray_item::IconSource;
 
 use flume::{Selector, unbounded};
 use gpui::{
@@ -46,6 +47,7 @@ fn main() -> anyhow::Result<()> {
 
     let hs_ip: Arc<Mutex<Option<Ipv4Addr>>> = Arc::new(Mutex::new(None));
     let hs_port: Arc<Mutex<Option<u16>>> = Arc::new(Mutex::new(None));
+    let is_disconnecting = Arc::new(Mutex::new(false));
 
     let app_config = config::get_config();
     info!(
@@ -69,7 +71,10 @@ fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("无法获取配置读取锁: {}", e))?
         .reconnect_hotkey
         .clone();
-    let mut _tray_item = tray::setup_tray(tray_tx.clone(), &reconnect_hotkey)?;
+    let tray_item = Arc::new(Mutex::new(tray::setup_tray(
+        tray_tx.clone(),
+        &reconnect_hotkey,
+    )?));
 
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
     let (main_key_opt, modifier_keys_vec) = hotkey::parse_hotkey_config(&reconnect_hotkey_clone);
@@ -105,6 +110,8 @@ fn main() -> anyhow::Result<()> {
     let hs_ip_clone = Arc::clone(&hs_ip);
     let hs_port_clone = Arc::clone(&hs_port);
     let gui_in_tx_clone = gui_in_tx.clone();
+    let is_disconnecting_clone = Arc::clone(&is_disconnecting);
+    let tray_item_clone = Arc::clone(&tray_item);
     std::thread::spawn(move || -> anyhow::Result<()> {
         loop {
             let selector_res = Selector::new()
@@ -129,6 +136,14 @@ fn main() -> anyhow::Result<()> {
                                     match hearthstone::reconnect(*hs_ip, *hs_port) {
                                         Ok(_) => {
                                             info!("重连操作成功。");
+                                            let mut is_disconnecting = is_disconnecting_clone
+                                                .lock()
+                                                .map_err(|e| anyhow::anyhow!("无法获取断开连接状态锁: {}", e))?;
+                                            *is_disconnecting = true;
+                                            let mut tray = tray_item_clone
+                                                .lock()
+                                                .map_err(|e| anyhow::anyhow!("无法获取托盘项目锁: {}", e))?;
+                                            tray.set_icon(IconSource::Resource("#3"))?;
                                         }
                                         Err(e) => {
                                             error!("重连操作失败: {}", e);
@@ -141,7 +156,10 @@ fn main() -> anyhow::Result<()> {
                                         .map_err(|e| anyhow::anyhow!("无法发送GUI消息: {}", e))?;
                                 }
                                 tray::TrayMessage::UpdateMenu(config) => {
-                                    _tray_item = tray::setup_tray(tray_tx.clone(), &config)?;
+                                    let mut tray = tray_item_clone
+                                        .lock()
+                                        .map_err(|e| anyhow::anyhow!("无法获取托盘项目锁: {}", e))?;
+                                    *tray = tray::setup_tray(tray_tx.clone(), &config)?;
                                 }
                             }
                         }
@@ -190,8 +208,19 @@ fn main() -> anyhow::Result<()> {
                     match msg {
                         Ok(log_msg) => {
                             info!("检测到炉石IP变化: {:?}", log_msg);
-                            *hs_ip.lock().unwrap() = log_msg.ip;
-                            *hs_port.lock().unwrap() = Some(log_msg.port);
+                            *hs_ip_clone.lock().unwrap() = log_msg.ip;
+                            *hs_port_clone.lock().unwrap() = Some(log_msg.port);
+                            let mut is_disconnecting = is_disconnecting_clone
+                                .lock()
+                                .map_err(|e| anyhow::anyhow!("无法获取断开连接状态锁: {}", e))?;
+                            if *is_disconnecting {
+                                *is_disconnecting = false;
+                                let mut tray = tray_item_clone
+                                    .lock()
+                                    .map_err(|e| anyhow::anyhow!("无法获取托盘项目锁: {}", e))?;
+                                tray.set_icon(IconSource::Resource("#1"))?;
+                                info!("已恢复默认托盘图标。");
+                            }
                         }
                         Err(e) => error!("接收日志消息失败: {}", e),
                     }

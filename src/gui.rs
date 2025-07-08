@@ -1,7 +1,6 @@
-use flume::Sender;
-use gpui::{Context, SharedString, Window, div, prelude::*, px, rgb};
-use log::error;
-use windows::Win32::Foundation::HWND;
+use eframe::{App, Frame, egui};
+use flume::{Receiver, Sender};
+use log;
 
 #[derive(Debug, Clone)]
 pub enum GuiOutMessage {
@@ -12,121 +11,163 @@ pub enum GuiOutMessage {
 pub enum GuiInMessage {
     Exit,
     Show,
-    Hide
+    Hide,
 }
 
-pub struct Setting {
-    pub hotkeys: SharedString,
-    pub current_pressed_keys: SharedString,
-    pub tx: Sender<GuiOutMessage>,
-    pub window_handle: Option<HWND>,
+pub struct EguiApp {
+    hotkeys: String,
+    current_pressed_keys: String,
+    gui_out_tx: Sender<GuiOutMessage>,
+    gui_in_rx: Receiver<GuiInMessage>,
+    visible: bool,
 }
 
-impl Render for Setting {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tx = self.tx.clone();
+impl EguiApp {
+    pub fn new(
+        gui_out_tx: Sender<GuiOutMessage>,
+        gui_in_rx: Receiver<GuiInMessage>,
+        hotkeys: String,
+    ) -> Self {
+        Self {
+            hotkeys,
+            current_pressed_keys: String::new(),
+            gui_out_tx,
+            gui_in_rx,
+            visible: true,
+        }
+    }
+}
 
-        // 主容器
-        let main_container = div()
-            .flex()
-            .flex_col()
-            .items_center()
-            .justify_center()
-            .size_full()
-            .bg(rgb(0xffffff)) // shadcn/ui 通常使用白色或非常浅的灰色背景
-            .p_8();
+impl App for EguiApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
+        // In reactive mode, we need to check for messages and request a repaint if we get one
+        // if !self.gui_in_rx.is_empty() {
+        //     ctx.request_repaint();
+        // }
 
-        // 卡片式容器的通用样式
-        let card_style = |children| {
-            div()
-                .w(px(350.)) // 固定宽度，或根据内容调整
-                .p_6()
-                .mb_6()
-                .bg(rgb(0xf9fafb)) // 非常浅的灰色背景，类似于 shadcn/ui 卡片
-                .border(px(1.))
-                .border_color(rgb(0xe5e7eb)) // 浅灰色边框
-                .rounded(px(12.)) // 更大的圆角
-                .shadow_md() // 细微的阴影
-                .children(children)
-        };
+        // if let Ok(msg) = self.gui_in_rx.try_recv() {
+        //     match msg {
+        //         GuiInMessage::Show => {
+        //             self.visible = true;
+        //             // When we show the window, we want to repaint it immediately
+        //             ctx.request_repaint();
+        //         }
+        //         GuiInMessage::Hide => self.visible = false,
+        //         GuiInMessage::Exit => {
+        //             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        //             return;
+        //         }
+        //     }
+        // }
 
-        // 当前快捷键显示区域
-        let current_hotkey_display = card_style(vec![
-            div()
-                .text_sm()
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgb(0x6b7280)) // 稍暗的灰色文本
-                .mb_2()
-                .child("当前快捷键")
-                .into_any_element(),
-            div()
-                .text_2xl() // 更大的字体
-                .font_weight(gpui::FontWeight::SEMIBOLD) // 半粗体
-                .text_color(rgb(0x1f2937)) // 深灰色文本
-                .child(self.hotkeys.clone())
-                .into_any_element(),
-        ]);
+        // // If the user presses the close button, hide the window instead of closing
+        // if ctx.input(|i| i.viewport().close_requested()) {
+        //     self.visible = false;
+        //     // Prevent the app from closing
+        //     ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        // }
 
-        // 实时按键显示区域
-        let pressed_keys_display = card_style(vec![
-            div()
-                .text_sm()
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(rgb(0x6b7280))
-                .mb_2()
-                .child("当前按下的键")
-                .into_any_element(),
-            div()
-                .text_2xl()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(rgb(0x1f2937))
-                .child(if self.current_pressed_keys.is_empty() {
-                    "无".to_string()
-                } else {
-                    self.current_pressed_keys.to_string()
-                })
-                .into_any_element(),
-        ]);
+        // // Set window visibility based on the state
+        // ctx.send_viewport_cmd(egui::ViewportCommand::Visible(self.visible));
 
-        // 保存按钮
-        let mut button = div()
-            .id("save-button")
-            .w(px(350.)) // 与卡片同宽
-            .h(px(48.)) // 合适的按钮高度
-            .flex()
-            .justify_center()
-            .items_center()
-            .bg(rgb(0x2563eb)) // shadcn/ui 风格的蓝色主色调
-            .text_color(rgb(0xffffff)) // 白色文本
-            .font_weight(gpui::FontWeight::MEDIUM)
-            .rounded(px(8.)) // 圆角
-            .cursor_pointer()
-            .child("保存快捷键")
-            .hover(|s| s.bg(rgb(0x1d4ed8))) // hover 时颜色变深
-            .active(|s| s.bg(rgb(0x1e40af))); // active 时颜色更深
+        // if !self.visible {
+        //     // If the window is hidden, we check for messages periodically.
+        //     // This is cheaper than `ctx.request_repaint()` which would be a busy-loop.
+        //     ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        //     return;
+        // }
 
-        button
-            .interactivity()
-            .on_click(cx.listener(move |this, _, _, _| {
-                let new_hotkey = if !this.current_pressed_keys.is_empty() {
-                    this.current_pressed_keys.to_string()
-                } else {
-                    this.hotkeys.to_string()
-                };
-                if !this.current_pressed_keys.is_empty() {
-                    this.hotkeys = SharedString::from(new_hotkey.clone());
-                    tx.send(GuiOutMessage::SaveHotKeys(new_hotkey))
-                        .unwrap_or_else(|e| {
-                            error!("无法发送消息: {}", e);
-                        });
-                } else {
-                    log::info!("没有新的按键组合被按下，未保存。");
+        // // Handle keyboard input for hotkey setting
+        // let old_keys = self.current_pressed_keys.clone();
+        // ctx.input(|i| {
+        //     for event in &i.events {
+        //         if let egui::Event::Key {
+        //             key,
+        //             pressed: true, // Only on key down
+        //             modifiers,
+        //             ..
+        //         } = event
+        //         {
+        //             let mut key_parts = Vec::new();
+        //             if modifiers.ctrl {
+        //                 key_parts.push("Ctrl".to_string());
+        //             }
+        //             if modifiers.alt {
+        //                 key_parts.push("Alt".to_string());
+        //             }
+        //             if modifiers.shift {
+        //                 key_parts.push("Shift".to_string());
+        //             }
+        //             if modifiers.command {
+        //                 key_parts.push("Win".to_string());
+        //             }
+
+        //             let main_key = format!("{:?}", key);
+        //             // Avoid registering single modifier keys as hotkeys
+        //             if !is_modifier(key) {
+        //                 key_parts.push(main_key.to_uppercase());
+        //             }
+
+        //             self.current_pressed_keys = if key_parts.len() > 1 {
+        //                 key_parts.join("+")
+        //             } else if key_parts.len() == 1 && !is_modifier(key) {
+        //                 key_parts.join("")
+        //             } else {
+        //                 // If only modifiers are pressed, don't update the display
+        //                 self.current_pressed_keys.clone()
+        //             };
+        //         }
+        //     }
+        // });
+
+        // // If the pressed keys have changed, request a repaint to show the new keys
+        // if self.current_pressed_keys != old_keys {
+        //     ctx.request_repaint();
+        // }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("快捷键设置");
+            });
+
+            ui.add_space(10.0);
+
+            egui::Grid::new("hotkey_grid")
+                .num_columns(2)
+                .spacing([40.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("当前快捷键:");
+                    ui.label(&self.hotkeys);
+                    ui.end_row();
+
+                    ui.label("当前按下的键:");
+                    ui.label(if self.current_pressed_keys.is_empty() {
+                        "无"
+                    } else {
+                        &self.current_pressed_keys
+                    });
+                    ui.end_row();
+                });
+
+            ui.add_space(10.0);
+
+            ui.vertical_centered(|ui| {
+                if ui.button("保存快捷键").clicked() {
+                    if !self.current_pressed_keys.is_empty() {
+                        self.hotkeys = self.current_pressed_keys.clone();
+                        self.gui_out_tx
+                            .send(GuiOutMessage::SaveHotKeys(self.hotkeys.clone()))
+                            .unwrap_or_else(|e| log::error!("无法发送消息: {}", e));
+                        // Clear pressed keys after saving
+                        self.current_pressed_keys.clear();
+                        // Request a repaint to show that the keys have been cleared
+                        ctx.request_repaint();
+                    } else {
+                        log::info!("没有新的按键组合被按下，未保存。");
+                    }
                 }
-            }));
-
-        main_container
-            .child(current_hotkey_display)
-            .child(pressed_keys_display)
-            .child(button)
+            });
+        });
     }
 }

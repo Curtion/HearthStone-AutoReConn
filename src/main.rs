@@ -1,13 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// 引入必要的模块
-use windows::Win32::Foundation::HWND;
-// GetActiveWindow 现在位于 KeyboardAndMouse 模块下
-use windows::Win32::UI::Input::KeyboardAndMouse::GetActiveWindow;
-// ShowWindow 仍然在 WindowsAndMessaging 模块下
-use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOW, ShowWindow};
-
-use gpui::AppContext;
 use std::{
     net::Ipv4Addr,
     sync::{Arc, Mutex},
@@ -15,13 +7,10 @@ use std::{
 use tray_item::IconSource;
 
 use flume::{Selector, unbounded};
-use gpui::{
-    App, Application, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions, px, size,
-};
 use is_elevated::is_elevated;
 use log::{error, info, warn};
 
-use crate::gui::Setting;
+use crate::gui::EguiApp;
 
 mod config;
 mod gui;
@@ -239,130 +228,24 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     });
 
-    Application::new().run(|cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(600.), px(600.0)), cx);
-        let window = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("快捷键设置".into()),
-                        ..Default::default()
-                    }),
-                    show: false,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    window.on_window_should_close(cx, move |_, _| {
-                        gui_in_tx.send(gui::GuiInMessage::Hide).unwrap_or_else(|e| {
-                            error!("无法发送退出消息: {}", e);
-                        });
-                        false
-                    });
-                    cx.new(|_| Setting {
-                        hotkeys: reconnect_hotkey.into(),
-                        current_pressed_keys: SharedString::from(""),
-                        tx: gui_out_tx,
-                        window_handle: None,
-                    })
-                },
-            )
-            .unwrap();
-        let view = window.update(cx, |_, _, cx| cx.entity()).unwrap();
-        cx.observe_keystrokes(move |event, _window, cx| {
-            let keystroke: &gpui::Keystroke = &event.keystroke;
-            // 构建按键字符串
-            let mut key_parts = Vec::new();
-            // 添加修饰键
-            if keystroke.modifiers.control {
-                key_parts.push("Ctrl".to_string());
-            }
-            if keystroke.modifiers.alt {
-                key_parts.push("Alt".to_string());
-            }
-            if keystroke.modifiers.shift {
-                key_parts.push("Shift".to_string());
-            }
-            if keystroke.modifiers.platform {
-                key_parts.push("Win".to_string());
-            }
-            // 添加主键
-            let main_key = match keystroke.key.as_str() {
-                "escape" => "Esc",
-                "enter" => "Enter",
-                "space" => "Space",
-                "tab" => "Tab",
-                key => key,
-            };
-            key_parts.push(main_key.to_uppercase());
-            let pressed_keys = if key_parts.len() > 1 {
-                key_parts.join("+")
-            } else {
-                key_parts.join("")
-            };
-            view.update(cx, |view, cx| {
-                view.current_pressed_keys = SharedString::from(pressed_keys.clone());
-                cx.notify();
-            })
-        })
-        .detach();
-        let window_clone = window.clone();
-        cx.spawn(async move |cx| -> anyhow::Result<()> {
-            while let Ok(gui_msg) = gui_in_rx.recv_async().await {
-                info!("GUI收到消息: {:?}", gui_msg);
-                let result: anyhow::Result<()> =
-                    window_clone.update(cx, |view, window, cx| match gui_msg {
-                        gui::GuiInMessage::Exit => {
-                            info!("退出应用...");
-                            cx.quit();
-                        }
-                        gui::GuiInMessage::Show => {
-                            if let Some(hwnd) = view.window_handle {
-                                if hwnd.0 != std::ptr::null_mut() {
-                                    show_window_by_handle(hwnd);
-                                }
-                            } else {
-                                window.activate_window();
-                            }
-                        }
-                        gui::GuiInMessage::Hide => {
-                            let window = hide_current_window();
-                            view.window_handle = window;
-                        }
-                    });
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 200.0]),
+        ..Default::default()
+    };
 
-                if let Err(e) = result {
-                    error!("处理GUI消息时出错: {}", e);
-                }
-                if let gui::GuiInMessage::Exit = gui_msg {
-                    break;
-                }
-            }
-            Ok(())
-        })
-        .detach();
-    });
+    let reconnect_hotkey_clone = reconnect_hotkey.clone();
+    if let Err(e) = eframe::run_native(
+        "快捷键设置",
+        options,
+        Box::new(move |_| {
+            Ok(Box::new(EguiApp::new(
+                gui_out_tx,
+                gui_in_rx,
+                reconnect_hotkey_clone,
+            )))
+        }),
+    ) {
+        error!("Eframe 错误: {}", e);
+    }
     Ok(())
-}
-
-// gpui未实现隐藏功能: https://github.com/zed-industries/zed/blob/f3896a2d51028514744df4a903e7cd3f5bbd0224/crates/gpui/src/platform/windows/platform.rs#L399
-fn hide_current_window() -> Option<HWND> {
-    unsafe {
-        let hwnd: HWND = GetActiveWindow();
-        if hwnd.0 != std::ptr::null_mut() {
-            let _ = ShowWindow(hwnd, SW_HIDE);
-            Some(hwnd)
-        } else {
-            error!("无法获取当前活动窗口句柄");
-            None
-        }
-    }
-}
-
-fn show_window_by_handle(hwnd: HWND) {
-    unsafe {
-        if hwnd.0 != std::ptr::null_mut() {
-            let _ = ShowWindow(hwnd, SW_SHOW);
-        }
-    }
 }

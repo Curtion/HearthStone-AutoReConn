@@ -1,4 +1,4 @@
-import { Button } from "std-widgets.slint";
+import { Button, Palette } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     in-out property <string> hotkeys;
@@ -10,6 +10,32 @@ export component MainWindow inherits Window {
     width: 350px;
     height: 200px;
     icon: @image-url("../src/assets/hsarec.png");
+
+    forward-focus: key-handler;
+    key-handler := FocusScope {
+        key-pressed(event) => {
+            debug("Key pressed: ", event.text, " with modifiers: ", event.modifiers);
+            if (event.text == Key.Escape) {
+                root.current-pressed-keys = "";
+                return accept;
+            }
+
+            if (event.text == Key.Control || event.text == Key.Shift || event.text == Key.Alt || event.text == Key.Meta) {
+                // Do nothing when only a modifier is pressed.
+                return accept;
+            }
+
+            // For all other keys, construct the string.
+            // This might result in an incomplete string like "ctrl+alt+" if the
+            // OS / windowing system reports an empty text for that combination (e.g. AltGr).
+            root.current-pressed-keys = (event.modifiers.control ? "ctrl+" : "")
+                                      + (event.modifiers.alt ? "alt+" : "")
+                                      + (event.modifiers.shift ? "shift+" : "")
+                                      + (event.modifiers.meta ? "meta+" : "")
+                                      + event.text;
+            accept
+        }
+    }
 
     VerticalLayout {
         padding: 15px;

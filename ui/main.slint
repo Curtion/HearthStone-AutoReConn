@@ -1,0 +1,45 @@
+import { Button } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    in-out property <string> hotkeys;
+    in-out property <string> current-pressed-keys;
+
+    callback save-hotkeys(string);
+
+    title: "快捷键设置";
+    width: 350px;
+    height: 200px;
+    icon: @image-url("../src/assets/hsarec.png");
+
+    VerticalLayout {
+        padding: 15px;
+        spacing: 15px;
+
+        Text {
+            text: "快捷键设置";
+            horizontal-alignment: center;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        GridLayout {
+            spacing: 10px;
+            Row {
+                Text { text: "当前快捷键:"; vertical-alignment: center; }
+                Text { text: root.hotkeys; vertical-alignment: center; }
+            }
+            Row {
+                Text { text: "当前按下的键:"; vertical-alignment: center; }
+                Text { text: root.current-pressed-keys == "" ? "无" : root.current-pressed-keys; vertical-alignment: center; }
+            }
+        }
+
+        Button {
+            text: "保存快捷键";
+            enabled: root.current-pressed-keys != "";
+            clicked => {
+                root.save-hotkeys(root.current-pressed-keys);
+            }
+        }
+    }
+}

@@ -10,8 +10,6 @@ use flume::{Selector, unbounded};
 use is_elevated::is_elevated;
 use log::{error, info, warn};
 
-use crate::gui::EguiApp;
-
 mod config;
 mod gui;
 mod hearthstone;
@@ -23,6 +21,8 @@ mod tray;
 
 const PROCESS_NAME: &str = "Hearthstone.exe";
 const LOGFILE_NAME: &str = "Hearthstone.log";
+
+slint::include_modules!();
 
 fn main() -> anyhow::Result<()> {
     logger::init_logger()?;
@@ -228,24 +228,19 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     });
 
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 200.0]),
-        ..Default::default()
-    };
-
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
-    if let Err(e) = eframe::run_native(
-        "快捷键设置",
-        options,
-        Box::new(move |_| {
-            Ok(Box::new(EguiApp::new(
-                gui_out_tx,
-                gui_in_rx,
-                reconnect_hotkey_clone,
-            )))
-        }),
-    ) {
-        error!("Eframe 错误: {}", e);
-    }
+    create_window(reconnect_hotkey_clone)?;
+    
+    Ok(())
+}
+
+fn create_window(hotkeys: String) -> anyhow::Result<()> {
+    let main_window = MainWindow::new()?;
+
+    main_window.set_hotkeys(hotkeys.into());
+
+    main_window.show()?;
+    slint::run_event_loop_until_quit()?;
+
     Ok(())
 }

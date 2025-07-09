@@ -4,4 +4,5 @@ fn main() {
             .manifest_required()
             .unwrap();
     }
+    slint_build::compile("ui/main.slint").unwrap();
 }

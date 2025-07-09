@@ -229,18 +229,43 @@ fn main() -> anyhow::Result<()> {
     });
 
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
-    create_window(reconnect_hotkey_clone)?;
-    
-    Ok(())
-}
 
-fn create_window(hotkeys: String) -> anyhow::Result<()> {
     let main_window = MainWindow::new()?;
+    main_window.set_hotkeys(reconnect_hotkey_clone.into());
+    main_window.on_save_hotkeys(move |value| {
+        let _ = gui_out_tx.send(gui::GuiOutMessage::SaveHotKeys(value.into()));
+    });
 
-    main_window.set_hotkeys(hotkeys.into());
+    main_window.window().on_close_requested(move || {
+        info!("主窗口请求关闭，正在处理...");
+        slint::CloseRequestResponse::HideWindow
+    });
+
+    let main_window_weak = main_window.as_weak();
+    std::thread::spawn(move || {
+        for message in &gui_in_rx {
+            match message {
+                gui::GuiInMessage::Exit => {
+                    let _ = slint::quit_event_loop();
+                    break;
+                }
+                gui::GuiInMessage::Show => {
+                    let window_weak_clone = main_window_weak.clone();
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(main_window) = window_weak_clone.upgrade() {
+                            let _ = main_window.show();
+                        } else {
+                            error!("无法显示窗口, 似乎窗口已被销毁");
+                        }
+                    })
+                    .unwrap();
+                }
+            }
+        }
+    });
 
     main_window.show()?;
     slint::run_event_loop_until_quit()?;
-
+    info!("应用正在退出...");
     Ok(())
 }

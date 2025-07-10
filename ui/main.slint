@@ -79,9 +79,16 @@ export component MainWindow inherits Window {
             }
         }
 
+        Text {
+            text: "注意：不支持 Ctrl+Alt 组合键。";
+            font-size: 12px;
+            color: gray;
+            horizontal-alignment: center;
+        }
+
         Button {
             text: "保存快捷键";
-            enabled: root.current-pressed-keys != "";
+            enabled: root.current-pressed-keys != "" && !(root.is-ctrl-down && root.is-alt-down);
             clicked => {
                 root.save-hotkeys(root.current-pressed-keys);
             }

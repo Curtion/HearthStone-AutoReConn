@@ -1,6 +1,6 @@
 [package]
 name = "hsarec"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["Curtion <curtion@126.com>"]
 edition = "2024"
 build = "build.rs"

@@ -231,6 +231,7 @@ fn main() -> anyhow::Result<()> {
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
 
     let main_window = MainWindow::new()?;
+    main_window.hide()?;
     let main_window_weak = main_window.as_weak();
     main_window.set_hotkeys(reconnect_hotkey_clone.into());
     main_window.on_save_hotkeys(move |value| {
@@ -270,7 +271,7 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    main_window.show()?;
+    // main_window.show()?;
     slint::run_event_loop_until_quit()?;
     info!("应用正在退出...");
     Ok(())

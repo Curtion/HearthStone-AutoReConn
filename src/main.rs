@@ -231,9 +231,15 @@ fn main() -> anyhow::Result<()> {
     let reconnect_hotkey_clone = reconnect_hotkey.clone();
 
     let main_window = MainWindow::new()?;
+    let main_window_weak = main_window.as_weak();
     main_window.set_hotkeys(reconnect_hotkey_clone.into());
     main_window.on_save_hotkeys(move |value| {
-        let _ = gui_out_tx.send(gui::GuiOutMessage::SaveHotKeys(value.into()));
+        let value_clone = value.clone();
+        if let Ok(_) = gui_out_tx.send(gui::GuiOutMessage::SaveHotKeys(value.into())) {
+            if let Some(main_window) = main_window_weak.upgrade() {
+                main_window.set_hotkeys(value_clone.into());
+            }
+        }
     });
 
     main_window.window().on_close_requested(move || {

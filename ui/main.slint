@@ -1,10 +1,16 @@
 import { Button, Palette } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
-    in-out property <string> hotkeys;
-    in-out property <string> current-pressed-keys;
+    in property <string> hotkeys;
+    property <string> current-pressed-keys;
 
     callback save-hotkeys(string);
+
+    // Private properties to track modifier key state
+    private property <bool> is-ctrl-down: false;
+    private property <bool> is-alt-down: false;
+    private property <bool> is-shift-down: false;
+    private property <bool> is-meta-down: false;
 
     title: "快捷键设置";
     width: 350px;
@@ -14,25 +20,36 @@ export component MainWindow inherits Window {
     forward-focus: key-handler;
     key-handler := FocusScope {
         key-pressed(event) => {
-            debug("Key pressed: ", event.text, " with modifiers: ", event.modifiers);
             if (event.text == Key.Escape) {
                 root.current-pressed-keys = "";
+                root.is-ctrl-down = false;
+                root.is-alt-down = false;
+                root.is-shift-down = false;
+                root.is-meta-down = false;
                 return accept;
             }
 
-            if (event.text == Key.Control || event.text == Key.Shift || event.text == Key.Alt || event.text == Key.Meta) {
-                // Do nothing when only a modifier is pressed.
+            if (event.text == Key.Control) { root.is-ctrl-down = true; }
+            if (event.text == Key.Alt) { root.is-alt-down = true; }
+            if (event.text == Key.Shift) { root.is-shift-down = true; }
+            if (event.text == Key.Meta) { root.is-meta-down = true; }
+
+            if (event.text == Key.Control || event.text == Key.Alt || event.text == Key.Shift || event.text == Key.Meta) {
                 return accept;
             }
 
-            // For all other keys, construct the string.
-            // This might result in an incomplete string like "ctrl+alt+" if the
-            // OS / windowing system reports an empty text for that combination (e.g. AltGr).
-            root.current-pressed-keys = (event.modifiers.control ? "ctrl+" : "")
-                                      + (event.modifiers.alt ? "alt+" : "")
-                                      + (event.modifiers.shift ? "shift+" : "")
-                                      + (event.modifiers.meta ? "meta+" : "")
-                                      + event.text;
+            root.current-pressed-keys = ((root.is-ctrl-down || event.modifiers.control) ? "Ctrl+" : "")
+                                      + ((root.is-alt-down || event.modifiers.alt) ? "Alt+" : "")
+                                      + ((root.is-shift-down || event.modifiers.shift) ? "Shift+" : "")
+                                      + ((root.is-meta-down || event.modifiers.meta) ? "Meta+" : "")
+                                      + event.text.to-uppercase();
+            accept
+        }
+        key-released(event) => {
+            if (event.text == Key.Control) { root.is-ctrl-down = false; }
+            if (event.text == Key.Alt) { root.is-alt-down = false; }
+            if (event.text == Key.Shift) { root.is-shift-down = false; }
+            if (event.text == Key.Meta) { root.is-meta-down = false; }
             accept
         }
     }
